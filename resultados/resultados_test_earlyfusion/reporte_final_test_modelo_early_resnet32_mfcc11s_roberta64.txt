@@ -1,0 +1,12 @@
+MODELO: ./modelo_estres_early_resnet32_mfcc11s_roberta64.pth
+Parámetros: 7164417
+Inferencia media: 0.91 ms
+ROC-AUC: 0.7906
+              precision    recall  f1-score   support
+
+   No Estrés     0.8891    0.7870    0.8350      3301
+      Estrés     0.4734    0.6611    0.5517       956
+
+    accuracy                         0.7588      4257
+   macro avg     0.6813    0.7241    0.6933      4257
+weighted avg     0.7958    0.7588    0.7714      4257

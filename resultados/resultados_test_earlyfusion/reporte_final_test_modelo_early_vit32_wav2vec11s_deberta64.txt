@@ -1,0 +1,12 @@
+MODELO: ./modelo_estres_early_vit32_wav2vec11s_deberta64.pth
+Parámetros: 7291649
+Inferencia media: 4.66 ms
+ROC-AUC: 0.6705
+              precision    recall  f1-score   support
+
+   No Estrés     0.8533    0.7065    0.7730      3301
+      Estrés     0.3642    0.5805    0.4476       956
+
+    accuracy                         0.6782      4257
+   macro avg     0.6087    0.6435    0.6103      4257
+weighted avg     0.7434    0.6782    0.6999      4257

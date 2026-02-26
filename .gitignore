@@ -1,0 +1,34 @@
+# --- DATOS  ---
+# Se ignoran los vídeos y audios crudos y procesados
+data/RAW/
+data/PROCESSED/IEMOCAP_CLIPS/
+data/PROCESSED/MELD_AUDIO/
+*.mp4
+*.wav
+*.zip
+*.tar.gz
+
+#--- EMBEDDINGS Y MODELOS (>10GB que están en Drive) ---
+*.npy
+*.pt
+*.pth
+
+# --- PYTHON ---
+# Se ignora archivos compilados
+__pycache__/
+*.py[cod]
+*$py.class
+
+# --- JUPYTER NOTEBOOKS ---
+# Se ignoran archivos de autoguardado 
+.ipynb_checkpoints
+*/.ipynb_checkpoints/*
+
+# --- SISTEMA OPERATIVO ---
+# Se ignora archivos de Windows
+.DS_Store
+Thumbs.db
+
+# --- CONFIGURACIÓN Y SECRETOS ---
+.env
+.vscode/

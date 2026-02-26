@@ -1,0 +1,12 @@
+MODELO: ./modelo_estres_early_resnet32_mfcc11s_bert32.pth
+Parámetros: 7164417
+Inferencia media: 0.93 ms
+ROC-AUC: 0.7671
+              precision    recall  f1-score   support
+
+   No Estrés     0.8632    0.8337    0.8482      3301
+      Estrés     0.4864    0.5439    0.5136       956
+
+    accuracy                         0.7686      4257
+   macro avg     0.6748    0.6888    0.6809      4257
+weighted avg     0.7786    0.7686    0.7731      4257

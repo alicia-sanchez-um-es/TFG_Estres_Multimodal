@@ -1,0 +1,1 @@
+Debido al volumen de datos procesados (>10GB), las características extraídas están disponibles para su descarga en el siguiente enlace al repositorio en la nube: https://drive.google.com/drive/folders/1bgp4G7iKviNvZmKr_VxoNSNBObuGYAyi?usp=sharing
