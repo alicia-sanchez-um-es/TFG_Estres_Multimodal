@@ -1,0 +1,12 @@
+MODELO: ./pesos_earlyfusion/modelo_estres_early_efficientnet32_mfcc11s_bert64.pth
+Parámetros: 5591553
+Inferencia media: 0.96 ms
+ROC-AUC: 0.8081
+              precision    recall  f1-score   support
+
+   No Estrés     0.7972    0.7918    0.7945      1638
+      Estrés     0.6647    0.6720    0.6683      1006
+
+    accuracy                         0.7462      2644
+   macro avg     0.7309    0.7319    0.7314      2644
+weighted avg     0.7468    0.7462    0.7465      2644

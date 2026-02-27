@@ -1,0 +1,12 @@
+MODELO: ./modelo_estres_late_resnet32_wav2vec11s_bert64.pth
+Parámetros: 9257731
+Inferencia media: 4.81 ms
+ROC-AUC: 0.8125
+              precision    recall  f1-score   support
+
+   No Estrés     0.8321    0.7381    0.7823      1638
+      Estrés     0.6398    0.7575    0.6937      1006
+
+    accuracy                         0.7455      2644
+   macro avg     0.7359    0.7478    0.7380      2644
+weighted avg     0.7589    0.7455    0.7486      2644

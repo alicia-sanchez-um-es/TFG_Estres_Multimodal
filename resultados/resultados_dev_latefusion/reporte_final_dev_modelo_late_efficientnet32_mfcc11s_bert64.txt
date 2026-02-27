@@ -1,0 +1,12 @@
+MODELO: ./modelo_estres_late_efficientnet32_mfcc11s_bert64.pth
+Parámetros: 4936195
+Inferencia media: 1.02 ms
+ROC-AUC: 0.8168
+              precision    recall  f1-score   support
+
+   No Estrés     0.8349    0.6947    0.7584      1638
+      Estrés     0.6097    0.7763    0.6830      1006
+
+    accuracy                         0.7258      2644
+   macro avg     0.7223    0.7355    0.7207      2644
+weighted avg     0.7492    0.7258    0.7297      2644

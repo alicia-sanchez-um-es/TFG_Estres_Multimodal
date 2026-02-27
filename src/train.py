@@ -9,7 +9,7 @@ import os
 import pandas as pd
 # Importamos las clases que hemos creado:
 from data.dataset import MultimodalStressDataset
-from models.fusion_strategies import EarlyFusionBase
+from models.fusion_strategies import EarlyFusionBase, LateFusionBase
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Entrenamiento Multimodal para Detección de Estrés")
@@ -170,9 +170,10 @@ def main():
     # ---------------------------------------------------------
     if args.fusion == 'early':
         model = EarlyFusionBase(visual_dim=VISUAL_INPUT_DIM, audio_dim=AUDIO_INPUT_DIM, text_dim=768, proj_dim=512)
-    # elif :
-    #     # model = LateFusionBase(visual_dim=VISUAL_INPUT_DIM, audio_dim=AUDIO_INPUT_DIM, text_dim=768, proj_dim=512)
+    elif args.fusion == 'late':
+        model = LateFusionBase(visual_dim=VISUAL_INPUT_DIM, audio_dim=AUDIO_INPUT_DIM, text_dim=768, proj_dim=512)
     # else:
+    #     model = AttentionFusionBase(visual_dim=VISUAL_INPUT_DIM, audio_dim=AUDIO_INPUT_DIM, text_dim=768, proj_dim=512)
     
     model = model.to(device)
 

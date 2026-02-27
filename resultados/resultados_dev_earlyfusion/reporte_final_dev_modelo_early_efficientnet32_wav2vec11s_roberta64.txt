@@ -1,0 +1,12 @@
+MODELO: ./pesos_earlyfusion/modelo_estres_early_efficientnet32_wav2vec11s_roberta64.pth
+Parámetros: 8340225
+Inferencia media: 4.67 ms
+ROC-AUC: 0.7939
+              precision    recall  f1-score   support
+
+   No Estrés     0.8360    0.6441    0.7276      1638
+      Estrés     0.5781    0.7942    0.6692      1006
+
+    accuracy                         0.7012      2644
+   macro avg     0.7071    0.7192    0.6984      2644
+weighted avg     0.7379    0.7012    0.7054      2644
