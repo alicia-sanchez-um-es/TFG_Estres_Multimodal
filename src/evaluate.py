@@ -12,20 +12,26 @@ from tqdm import tqdm
 from sklearn.metrics import f1_score, accuracy_score, confusion_matrix, classification_report, roc_auc_score, roc_curve
 # Importamos las clases que hemos creado:
 from data.dataset import MultimodalStressDataset
-from models.fusion_strategies import EarlyFusionBase, LateFusionBase
+from models.fusion_strategies import EarlyFusionBase, LateFusionBase, AttentionFusionBase
 
 def parse_args():
+    # Argumentos de entrada por terminal directamente: 
     parser = argparse.ArgumentParser(description="Evaluación Final del Modelo Multimodal")
     parser.add_argument('--model_path', type=str, required=True, help='Ruta al archivo .pth con los mejores pesos')
-    parser.add_argument('--video', type=str, required=True, choices=['resnet', 'vit', 'efficientnet'])
-    parser.add_argument('--audio', type=str, required=True, choices=['wav2vec', 'mfcc'])
-    parser.add_argument('--text', type=str, required=True)
-    parser.add_argument('--fusion', type=str, default='early', choices=['early', 'late'], help='Estrategia de fusión: early o late')
-    parser.add_argument('--audio_len', type=int, default=11)
-    parser.add_argument('--video_frames', type=int, default=32)
+    # 1. BACKBONES:
+    parser.add_argument('--video', type=str, required=True, choices=['resnet', 'vit', 'efficientnet'], help='Backbone visual a utilizar')
+    parser.add_argument('--audio', type=str, required=True, choices=['wav2vec', 'mfcc'], help='Backbone acústico a utilizar')
+    parser.add_argument('--text', type=str, required=True, choices=['roberta64', 'bert64', 'deberta64', 'bert32', 'roberta32', 'deberta32'], help='Backbone textual a utilizar y su ventana de tokens')
+
+    # 2. ESTRATEGIA DE FUSIÓN:
+    parser.add_argument('--fusion', type=str, default='early', choices=['early', 'late', 'attention'], help='Estrategia de fusión (early, late o attention)')
+
+    # 3. VENTANAS TEMPORALES DE AUDIO Y VIDEO:
+    parser.add_argument('--audio_len', type=int, default=11, choices=[11, 7],help='Ventana temporal del audio en segundos (11 o 7)')
+    parser.add_argument('--video_frames', type=int, default=32, choices=[32, 16],help='Número de frames de vídeo a procesar (32 o 16)')
+
     parser.add_argument('--split', type=str, default='dev', choices=['dev', 'test'], help='Conjunto a evaluar: dev o test')
     return parser.parse_args()
-
 
 def main():
     args = parse_args()
@@ -102,6 +108,10 @@ def main():
         model = EarlyFusionBase(visual_dim=VISUAL_INPUT_DIM, audio_dim=AUDIO_INPUT_DIM, text_dim=768, proj_dim=512)
     elif args.fusion == 'late':
         model = LateFusionBase(visual_dim=VISUAL_INPUT_DIM, audio_dim=AUDIO_INPUT_DIM, text_dim=768, proj_dim=512)
+    elif args.fusion == 'attention':
+        model = AttentionFusionBase(visual_dim=VISUAL_INPUT_DIM, audio_dim=AUDIO_INPUT_DIM, text_dim=768, proj_dim=512)
+    else: 
+        raise ValueError("Estrategia no válida. Usa: early, late, attention")
 
     model.load_state_dict(torch.load(args.model_path, map_location=device))
     model = model.to(device)
@@ -176,7 +186,7 @@ def main():
     plt.title(f'Matriz de Confusión - {args.fusion.upper()}')
     plt.xlabel('Predicción')
     plt.ylabel('Real')
-    plt.savefig(f'Fig_5_1_1_matriz_confusion_modelo_{args.split}_{args.fusion}_{args.video}{args.video_frames}_{args.audio}{args.audio_len}s_{args.text}.png')
+    plt.savefig(f'Fig_6_1_1_matriz_confusion_modelo_{args.split}_{args.fusion}_{args.video}{args.video_frames}_{args.audio}{args.audio_len}s_{args.text}.png')
 
 
     # CURVA ROC
@@ -188,7 +198,7 @@ def main():
     plt.ylabel('True Positive Rate')
     plt.title('Receiver Operating Characteristic (ROC)')
     plt.legend(loc="lower right")
-    plt.savefig(f'Fig_5_1_2_curva_roc_modelo_{args.split}_{args.fusion}_{args.video}{args.video_frames}_{args.audio}{args.audio_len}s_{args.text}.png')
+    plt.savefig(f'Fig_6_1_2_curva_roc_modelo_{args.split}_{args.fusion}_{args.video}{args.video_frames}_{args.audio}{args.audio_len}s_{args.text}.png')
 
     # 9. INFORME FINAL (.txt)
     with open(f"reporte_final_{args.split}_modelo_{args.fusion}_{args.video}{args.video_frames}_{args.audio}{args.audio_len}s_{args.text}.txt", "w") as f:

@@ -32,13 +32,13 @@ class EarlyFusionBase(nn.Module):
         fusion_dim = proj_dim * 3
         
         ## Arquitectura del MLP:
-        ## - Capa 1: Reducción de 1536 a 512 dimensiones. Primer paso hacia una reducción gradual de la dimensionalidad, permite que la red aprenda a condensar la información multimodal.
+        ## - Capa 1 LINEAL: Reducción de 1536 a 512 dimensiones. Primer paso hacia una reducción gradual de la dimensionalidad, permite que la red aprenda a condensar la información multimodal.
         ##     --> ReLU: Para introducir no linealidad, clave para que la red aprenda relaciones no lineales entre las características multimodales.
         ##     --> Dropout: Del 50%. Para prevenir el sobreajuste, dado el tamaño relativamente pequeño del dataset, debemos incluir regularización.
-        ## - Capa 2: Reducción de 512 a 128 dimensiones. Se continúa la reducción gradual.
+        ## - Capa 2 LINEAL: Reducción de 512 a 128 dimensiones. Se continúa la reducción gradual.
         ##     --> ReLU: Para mantener la capacidad de modelar relaciones complejas.
         ##     --> Dropout: Del 50% para seguir previniendo el sobreajuste.
-        ## - Capa Final: Reducción de 128 a 1 dimensión. Esta neurona final devuelve un valor bruto (logit).
+        ## - Capa Final LINEAL: Reducción de 128 a 1 dimensión. Esta neurona final devuelve un valor bruto (logit).
         ##     --> Sigmoid: Para convertir el logit en una probabilidad entre 0 y 1, que es lo que necesitamos para la clasificación binaria de estrés/no estrés
 
         self.mlp = nn.Sequential(
@@ -106,6 +106,13 @@ class LateFusionBase(nn.Module):
         # 2. Clasificadores Independientes (Unimodales)
         # En lugar de un MLP de 1536 dimensiones de entrada, creamos tres pequeños por cada modalidad.
         # Cada uno toma las 512 características de su modalidad y devuelve 1 valor (logit):
+
+        ## Arquitectura MLP VISUAL, AUDIO, TEXTUAL:
+        ## - Capa 1 LINEAL: Reducción de 512 a 128 dimensiones. 
+        ##     --> ReLU: Para introducir no linealidad.
+        ##     --> Dropout: Del 50%. Para prevenir el sobreajuste, dado el tamaño pequeño del dataset.
+        ## - Capa 2 LINEAL: Reducción de 128 dimensiones a 1 dimensión (logit)
+        ##    ---> SALIDA: Logit visual (valor real)
         
         self.visual_clf = nn.Sequential(
             nn.Linear(proj_dim, 128),
@@ -129,6 +136,9 @@ class LateFusionBase(nn.Module):
         )
 
     def forward(self, video_x, audio_x, text_x):
+        """
+        Flujo hacia delante de los datos a través de la red.
+        """
         # 1. Extracción de características (512 dims cada una)
         v_emb = self.visual_adapter(video_x) 
         a_emb = self.audio_adapter(audio_x)
@@ -143,5 +153,95 @@ class LateFusionBase(nn.Module):
         # Al promediar los logits matemáticamente puros (antes de la sigmoide),
         # mantenemos la compatibilidad con BCEWithLogitsLoss, que es la función de pérdida que hemos aplicado en de train.py
         final_logit = (v_logit + a_logit + t_logit) / 3.0
+        
+        return final_logit
+
+
+# ------------ TERCERA ESTRATEGIA DE FUSIÓN: ATTENTION FUSION ----------
+
+class AttentionFusionBase(nn.Module):
+    """
+    Arquitectura de Fusión mediante Atención (Additive/Soft-Attention or Bahdanau Attention).
+    Esta red aprende a ponderar dinámicamente la importancia de cada modalidad (Vídeo, Audio, Texto)
+    para cada muestra de forma independiente
+    """
+    def __init__(self, visual_dim=2048, audio_dim=768, text_dim=768, proj_dim=512):
+        super(AttentionFusionBase, self).__init__()
+
+        # 1. Instanciamos los Adaptadores (lo mismo que hemos hecho para cada una de las estrategias, la salida es de 512 dims por cada modalidad)
+        self.visual_adapter = VisualAdapter(input_dim=visual_dim, projection_dim=proj_dim)
+        self.audio_adapter = AudioAdapter(input_dim=audio_dim, projection_dim=proj_dim)
+        self.text_adapter = TextAdapter(input_dim=text_dim, projection_dim=proj_dim)
+        
+        # 2. Red de Atención  y Clasificador Final: 
+
+        ## Arquitectura de ATENCIÓN + MLP:
+        ##
+        ##              ---------------- MECANISMO DE ATENCIÓN ADITIVO ----------------
+        ##
+        ## - Capa 1 LINEAL: CAPA DE ATENCIÓN. Reducción de 512 a 128 dimensiones, por cada modalidad por separado. Reducción a las 128 características más relevantes.
+        ##      --> Tanh(): Función de activación Tangente Hiperbólica. Matemáticamente, coge el vector de salida de la anterior capa lineal (128 dims) y proyecta los valores entre -1 y 1. Esto permite que haya valores positivos y negativos, ya que los negativos permiten que la red aprenda los "pesos" de cada modalidad de forma estable y con mayor contraste entre aquello relevante (más cercano a 1) y ruido (más cercano a -1).
+        ## - Capa 2 LINEAL: Score de Atención: Recibe de entrada un vector de 128 dimensiones filtradas por Tanh() -> De salida obtenemos un escalar (raw score o energía), que es la puntuación que le da la red de atención a dicha modalidad concreta.
+        ##
+        ##                          -------------- CLASIFICADOR MLP ----------------
+        ## - Capa 1 LINEAL: Reducción del vector fusionado (512 dimensiones) a 128 dims. 
+        ##     --> ReLU: Para introducir no linealidad.
+        ##     --> Dropout: Del 50%. Para prevenir el sobreajuste.
+        ## - Capa 2 LINEAL: Reducción de 128 dimensiones a 1--> LOGIT FINAL DE LA RED!!!
+
+
+        ##              ---------------- MECANISMO DE ATENCIÓN ADITIVO ----------------
+
+        # Recibe una modalidad de 512 dims y devuelve 1 único valor (el score sin procesar, logit)
+        ## ENTRADA: (Batch, 3, 512) --> SALIDA: (Batch, 3, 1)
+        self.attention_layer = nn.Sequential(
+            nn.Linear(proj_dim, 128),
+            nn.Tanh(),
+            nn.Linear(128, 1)
+        )
+
+        ##                          -------------- CLASIFICADOR MLP ----------------
+        # Recibe el vector fusionado final (que sigue siendo de 512 dims) y obtiene la predicción final
+        ## ENTRADA: (Batch, 512) --> (Batch, 128) --> (Batch, 1)
+        self.classifier = nn.Sequential(
+            nn.Linear(proj_dim, 128),
+            nn.ReLU(),
+            nn.Dropout(0.5),
+            nn.Linear(128, 1) # Salida logit final
+        )
+
+        
+    def forward(self, video_x, audio_x, text_x):
+        """
+        Flujo hacia delante de los datos a través de la red.
+        """
+        # 1. Extracción de características con adapters ---> (Batch, 512)
+        v_emb = self.visual_adapter(video_x) 
+        a_emb = self.audio_adapter(audio_x)
+        t_emb = self.text_adapter(text_x)
+        
+        # 2. Apilamos las modalidades en una nueva dimensión:
+        # Apilamos esos 3 tensores de cada modalidad a un único "bloque" de tamaño: (Batch, 3 modalidades, 512 características)
+        stacked_embs = torch.stack([v_emb, a_emb, t_emb], dim=1)
+        
+        # 3. Calculamos los "Scores" de Atención
+        # Le pasamos el bloque a la red de atención. Nos devuelve un score por modalidad: (Batch, 3, 1)
+        attn_scores = self.attention_layer(stacked_embs)
+        
+        # 4. Aplicamos Softmax: 
+        # Con softmax se mapean esos scores para que los 3 valores sumen exactamente 1.0 (interpretándolos así como probabilidades, por ej.: 0.7, 0.2, 0.1, por cada modalidad ) 
+        attn_weights = torch.softmax(attn_scores, dim=1) # dim=1 indica que calcule los valores de las 3 modalidades
+        
+        # 5. Fusión ponderada
+        # Multiplicamos cada modalidad por su probabilidad de atención (0.7 * v_emb, etc...)
+        weighted_embs = stacked_embs * attn_weights
+        
+        # Sumamos las tres modalidades ya ponderadas para aplastar el bloque de nuevo a (Batch, 512)
+        # Se suma ya que estamos calculando una media ponderada:
+        context_vector = torch.sum(weighted_embs, dim=1)
+        
+        # 6. Clasificación Final
+        # Pasamos el vector de contexto final por el clasificador
+        final_logit = self.classifier(context_vector)
         
         return final_logit

@@ -9,7 +9,7 @@ import os
 import pandas as pd
 # Importamos las clases que hemos creado:
 from data.dataset import MultimodalStressDataset
-from models.fusion_strategies import EarlyFusionBase, LateFusionBase
+from models.fusion_strategies import EarlyFusionBase, LateFusionBase, AttentionFusionBase
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Entrenamiento Multimodal para Detección de Estrés")
@@ -172,8 +172,10 @@ def main():
         model = EarlyFusionBase(visual_dim=VISUAL_INPUT_DIM, audio_dim=AUDIO_INPUT_DIM, text_dim=768, proj_dim=512)
     elif args.fusion == 'late':
         model = LateFusionBase(visual_dim=VISUAL_INPUT_DIM, audio_dim=AUDIO_INPUT_DIM, text_dim=768, proj_dim=512)
-    # else:
-    #     model = AttentionFusionBase(visual_dim=VISUAL_INPUT_DIM, audio_dim=AUDIO_INPUT_DIM, text_dim=768, proj_dim=512)
+    elif args.fusion == 'attention':
+        model = AttentionFusionBase(visual_dim=VISUAL_INPUT_DIM, audio_dim=AUDIO_INPUT_DIM, text_dim=768, proj_dim=512)
+    else: 
+        raise ValueError("Estrategia no válida. Usa: early, late, attention")
     
     model = model.to(device)
 
