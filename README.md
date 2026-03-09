@@ -10,18 +10,22 @@ El objetivo del proyecto es desarrollar un sistema capaz de detectar estrés en 
 El proyecto sigue la siguiente organización de directorios:
 
 - **`data/`**: Contiene la estructura de los datasets.
-    - `RAW/`: (Ignorado en Git) Datos originales de MELD e IEMOCAP.
+    - `RAW/`: (Ignorado) Datos originales de MELD e IEMOCAP.
     - `PROCESSED/`: CSVs limpios y metadatos unificados (`IEMOCAP_clean.csv`, `MELD_clean.csv`, `Multimodal_Stress_Dataset.csv`).
     - **Nota sobre características extraídas:** Debido al volumen de datos procesados (>10GB de embeddings), los tensores extraídos no se incluyen en este repositorio. Las instrucciones y el enlace de descarga al repositorio en la nube se encuentran en el archivo `data/link_to_data.txt`.
-- **`notebooks/`**: Jupyter Notebooks con el pipeline ETL y el análisis exploratorio (EDA), entre otros. 
-    - `3.1_a_ETL_Pipeline_MELD.ipynb`: Preprocesamiento y limpieza inicial (MELD).
-    - `3.1_b_ETL_Pipeline_IEMOCAP.ipynb`: Preprocesamiento y limpieza inicial (IEMOCAP).
-    - `3.1_c_ETL_Pipeline_Unification_Split.ipynb`: Unificación y particionamiento del dataset global.
-    - `3.2_EDA_Multimodal.ipynb`: Análisis exploratorio de los datos preprocesados.
-    - `3.4_a_Feature_Extraction_Visual.ipynb`: Extracción de embeddings visuales.
-    - `3.4_b_Feature_Extraction_Audio.ipynb`: Extracción de embeddings acústicos.
-    - `3.4_c_Feature_Extraction_Text.ipynb`: Extracción de embeddings textuales.
-    - `5.2_Seleccion_Extractor_Caracteristicas.ipynb`.
+- **`notebooks/`**: Jupyter Notebooks con el pipeline ETL y el análisis exploratorio (EDA), entre otros. **NOTA**: La numeración de los notebooks se corresponde directamente con los apartados y secciones de la memoria escrita del TFG. Esto está diseñado así para facilitar la lectura y permitir el seguimiento del código en paralelo con la justificación teórica.
+    - `4.1_a_ETL_Pipeline_MELD.ipynb`: Preprocesamiento y limpieza inicial (MELD).
+    - `4.1_b_ETL_Pipeline_IEMOCAP.ipynb`: Preprocesamiento y limpieza inicial (IEMOCAP).
+    - `4.1_c_ETL_Pipeline_Unification_Split.ipynb`: Unificación y particionamiento del dataset global.
+    - `4.2_EDA_Multimodal.ipynb`: Análisis exploratorio de los datos preprocesados.
+    - `4.4_a_Feature_Extraction_Visual.ipynb`: Extracción de embeddings visuales.
+    - `4.4_b_Feature_Extraction_Audio.ipynb`: Extracción de embeddings acústicos.
+    - `4.4_c_Feature_Extraction_Text.ipynb`: Extracción de embeddings textuales.
+    - `6.2_Seleccion_Extractor_Caracteristicas.ipynb`: Análisis de los resultados de **Early Fusion**.
+    - `6.3_Evaluacion_Late_Attention_Fusion.ipynb`: Análisis de los resultados de **Late** y **Attention** Fusion.
+    - `6.4_Optimizacion_Ventana_Temporal.ipynb`: Análisis de los resultados con diferentes ventanas temporales.
+    - `6.5_Estudio_Ablacion.ipynb`: Análisis de los resultados del Estudio de Ablación.
+    - `6.6_Evaluacion_Transfer_Learning.ipynb`: Análisis de los resultados de Transfer Learning.
 - **`src/`**: Código fuente modular del proyecto.
     - `data/`: Scripts de carga de datos (`dataset.py`).
     - `models/`: Arquitecturas de los modelos (`adapters.py`, `fusion_strategies.py`).
