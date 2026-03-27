@@ -1,0 +1,12 @@
+MODELO: pesos_modelo_estres_global_early_vit32_wav2vec11s_roberta64.pth
+Parámetros: 7029249
+Inferencia media: 4.97 ms
+ROC-AUC: 0.7707
+              precision    recall  f1-score   support
+
+   No Estrés     0.7846    0.7027    0.7414      1638
+      Estrés     0.5862    0.6859    0.6322      1006
+
+    accuracy                         0.6963      2644
+   macro avg     0.6854    0.6943    0.6868      2644
+weighted avg     0.7091    0.6963    0.6998      2644

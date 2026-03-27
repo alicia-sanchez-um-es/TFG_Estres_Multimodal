@@ -1,0 +1,10 @@
+CODIFICADOR: roberta64
+ROC-AUC: 0.8070
+              precision    recall  f1-score   support
+
+   No Estrés     0.8054    0.7680    0.7863      1638
+      Estrés     0.6488    0.6978    0.6724      1006
+
+    accuracy                         0.7413      2644
+   macro avg     0.7271    0.7329    0.7293      2644
+weighted avg     0.7458    0.7413    0.7429      2644

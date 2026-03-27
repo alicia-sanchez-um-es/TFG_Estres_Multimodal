@@ -1,0 +1,11 @@
+Modelo,Modalidad,F1_Macro,AUC,Recall_Estres
+ResNet + MFCCs (+ RMS + ZCR) + BERT,Multimodal,0.7285,0.8036,0.7346
+ViT + MFCCs (+ RMS + ZCR) + RoBERTa,Multimodal,0.7127,0.8099,0.7793
+ViT + MFCCs (+ RMS + ZCR) + BERT,Multimodal,0.7124,0.7944,0.7565
+ResNet + MFCCs (+ RMS + ZCR) + RoBERTa,Multimodal,0.7107,0.7981,0.7416
+EfficientNet + MFCCs (+ RMS + ZCR) + BERT,Multimodal,0.6988,0.7717,0.6103
+EfficientNet + MFCCs (+ RMS + ZCR) + RoBERTa,Multimodal,0.6927,0.7871,0.7167
+ResNet + MFCCs (+ RMS + ZCR) + DeBERTa,Multimodal,0.6663,0.7147,0.7097
+EfficientNet + MFCCs (+ RMS + ZCR) + DeBERTa,Multimodal,0.6418,0.6983,0.8012
+ViT + MFCCs (+ RMS + ZCR) + DeBERTa,Multimodal,0.6312,0.7058,0.8141
+Baseline MFCCs (+ RMS + ZCR),Unimodal,0.5497,0.5873,0.5984

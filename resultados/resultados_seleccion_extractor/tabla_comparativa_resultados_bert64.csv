@@ -1,0 +1,8 @@
+Modelo,Modalidad,F1_Macro,AUC,Recall_Estres
+Baseline BERT,Unimodal,0.7424,0.8197,0.6879
+ResNet + Wav2Vec + BERT,Multimodal,0.736,0.8224,0.83
+ResNet + MFCCs (+ RMS + ZCR) + BERT,Multimodal,0.7285,0.8036,0.7346
+ViT + Wav2Vec + BERT,Multimodal,0.7198,0.8023,0.7455
+EfficientNet + Wav2Vec + BERT,Multimodal,0.7134,0.7853,0.673
+ViT + MFCCs (+ RMS + ZCR) + BERT,Multimodal,0.7124,0.7944,0.7565
+EfficientNet + MFCCs (+ RMS + ZCR) + BERT,Multimodal,0.6988,0.7717,0.6103

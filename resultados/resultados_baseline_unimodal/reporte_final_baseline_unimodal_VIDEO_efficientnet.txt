@@ -1,0 +1,10 @@
+CODIFICADOR: efficientnet
+ROC-AUC: 0.6897
+              precision    recall  f1-score   support
+
+   No Estrés     0.8222    0.5110    0.6303      1638
+      Estrés     0.5074    0.8201    0.6269      1006
+
+    accuracy                         0.6286      2644
+   macro avg     0.6648    0.6655    0.6286      2644
+weighted avg     0.7024    0.6286    0.6290      2644

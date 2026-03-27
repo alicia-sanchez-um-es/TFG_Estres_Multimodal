@@ -1,0 +1,8 @@
+Modelo,Modalidad,F1_Macro,AUC,Recall_Estres
+ViT + Wav2Vec + BERT,Multimodal,0.7198,0.8023,0.7455
+ViT + MFCCs (+ RMS + ZCR) + RoBERTa,Multimodal,0.7127,0.8099,0.7793
+ViT + MFCCs (+ RMS + ZCR) + BERT,Multimodal,0.7124,0.7944,0.7565
+ViT + Wav2Vec + RoBERTa,Multimodal,0.6868,0.7707,0.6859
+Baseline ViT,Unimodal,0.6485,0.707,0.8231
+ViT + Wav2Vec + DeBERTa,Multimodal,0.6346,0.7158,0.836
+ViT + MFCCs (+ RMS + ZCR) + DeBERTa,Multimodal,0.6312,0.7058,0.8141

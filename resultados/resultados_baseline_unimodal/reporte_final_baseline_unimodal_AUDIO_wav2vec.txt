@@ -1,0 +1,10 @@
+CODIFICADOR: wav2vec
+ROC-AUC: 0.5470
+              precision    recall  f1-score   support
+
+   No Estrés     0.6206    0.9676    0.7562      1638
+      Estrés     0.4111    0.0368    0.0675      1006
+
+    accuracy                         0.6135      2644
+   macro avg     0.5159    0.5022    0.4119      2644
+weighted avg     0.5409    0.6135    0.4942      2644

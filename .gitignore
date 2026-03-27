@@ -7,11 +7,17 @@ data/PROCESSED/MELD_AUDIO/
 *.wav
 *.zip
 *.tar.gz
+#Ignoramos directorio con pesos:
+pesos/
+# Se ignoran también pruebas:
+resultados/prueba_ELIMINAR/
+ELIMINAR_*.ipynb
 
 #--- EMBEDDINGS Y MODELOS (>10GB que están en Drive) ---
 *.npy
 *.pt
 *.pth
+
 
 # --- PYTHON ---
 # Se ignora archivos compilados

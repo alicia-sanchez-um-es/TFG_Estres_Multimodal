@@ -1,10 +1,10 @@
+import os
+import pandas as pd
+import numpy as np
 import argparse
 import torch
 import torch.nn as nn
 import time
-import os
-import pandas as pd
-import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from torch.utils.data import DataLoader
@@ -17,7 +17,12 @@ from models.fusion_strategies import EarlyFusionBase, LateFusionBase, AttentionF
 def parse_args():
     # Argumentos de entrada por terminal directamente: 
     parser = argparse.ArgumentParser(description="Evaluación Final del Modelo Multimodal")
+
     parser.add_argument('--model_path', type=str, required=True, help='Ruta al archivo .pth con los mejores pesos')
+    parser.add_argument('--eval_dataset', type=str, default='global', choices=['global', 'MELD', 'IEMOCAP'], 
+                        help='Corpus a evaluar: global (ambos), MELD o IEMOCAP')
+    parser.add_argument('--split', type=str, default='dev', choices=['dev', 'test'], help='Conjunto a evaluar: dev o test')
+
     # 1. BACKBONES:
     parser.add_argument('--video', type=str, required=True, choices=['resnet', 'vit', 'efficientnet'], help='Backbone visual a utilizar')
     parser.add_argument('--audio', type=str, required=True, choices=['wav2vec', 'mfcc'], help='Backbone acústico a utilizar')
@@ -26,12 +31,23 @@ def parse_args():
     # 2. ESTRATEGIA DE FUSIÓN:
     parser.add_argument('--fusion', type=str, default='early', choices=['early', 'late', 'attention'], help='Estrategia de fusión (early, late o attention)')
 
-    # 3. VENTANAS TEMPORALES DE AUDIO Y VIDEO:
+    # 3. HIPERPARÁMETROS A AJUSTAR:
+
+    # ---> VENTANAS TEMPORALES DE AUDIO Y VIDEO:
     parser.add_argument('--audio_len', type=int, default=11, choices=[11, 7],help='Ventana temporal del audio en segundos (11 o 7)')
     parser.add_argument('--video_frames', type=int, default=32, choices=[32, 16],help='Número de frames de vídeo a procesar (32 o 16)')
 
-    parser.add_argument('--split', type=str, default='dev', choices=['dev', 'test'], help='Conjunto a evaluar: dev o test')
+    # ---> CONFIGURACIÓN DE ARQUITECTURA:
+    parser.add_argument('--proj_dim', type=int, default=512, help='Dimensión de proyección')
+    parser.add_argument('--hidden_mlp', type=int, default=128, help='Dimensión oculta del clasificador final')
+    parser.add_argument('--hidden_lstm', type=int, default=512, help='Dimensión oculta de la LSTM')
+    parser.add_argument('--lstm_layers', type=int, default=1, help='Número de capas de la LSTM')
+
+    # ---> ENTRENAMIENTO Y REGULARIZACIÓN
+    parser.add_argument('--dropout', type=float, default=0.5, help='Probabilidad de Dropout')
+
     return parser.parse_args()
+    
 
 def main():
     args = parse_args()
@@ -72,6 +88,10 @@ def main():
     df = pd.read_csv(csv_path)
 
     df_eval = df[df['split'] == args.split]
+    # Filtramos si se ha seleccionado un corpus específico:
+    if args.eval_dataset != 'global':
+        df_eval = df_eval[df_eval['dataset_origin'] == args.eval_dataset]
+
     df_eval['file_id'] = (df_eval['Dialogue_ID'].astype(str) + "_" + df_eval['Utterance_ID'].astype(str)).str.replace("/", "_")
     eval_ids = df_eval['file_id'].tolist()
     eval_labels = df_eval['target_stress'].tolist()
@@ -105,11 +125,11 @@ def main():
     # -------------------------------------------
 
     if args.fusion == 'early':
-        model = EarlyFusionBase(visual_dim=VISUAL_INPUT_DIM, audio_dim=AUDIO_INPUT_DIM, text_dim=768, proj_dim=512)
+        model = EarlyFusionBase(visual_dim=VISUAL_INPUT_DIM, audio_dim=AUDIO_INPUT_DIM, text_dim=768, proj_dim=args.proj_dim, hidden_lstm=args.hidden_lstm, hidden_mlp=args.hidden_mlp, dropout_prob=args.dropout, lstm_layers=args.lstm_layers)
     elif args.fusion == 'late':
-        model = LateFusionBase(visual_dim=VISUAL_INPUT_DIM, audio_dim=AUDIO_INPUT_DIM, text_dim=768, proj_dim=512)
+        model = LateFusionBase(visual_dim=VISUAL_INPUT_DIM, audio_dim=AUDIO_INPUT_DIM, text_dim=768, proj_dim=args.proj_dim, hidden_lstm=args.hidden_lstm, hidden_mlp=args.hidden_mlp, dropout_prob=args.dropout, lstm_layers=args.lstm_layers)
     elif args.fusion == 'attention':
-        model = AttentionFusionBase(visual_dim=VISUAL_INPUT_DIM, audio_dim=AUDIO_INPUT_DIM, text_dim=768, proj_dim=512)
+        model = AttentionFusionBase(visual_dim=VISUAL_INPUT_DIM, audio_dim=AUDIO_INPUT_DIM, text_dim=768, proj_dim=args.proj_dim, hidden_lstm=args.hidden_lstm, hidden_mlp=args.hidden_mlp, dropout_prob=args.dropout, lstm_layers=args.lstm_layers)
     else: 
         raise ValueError("Estrategia no válida. Usa: early, late, attention")
 
@@ -117,7 +137,7 @@ def main():
     model = model.to(device)
     model.eval() # Ponemos el modelo en modo evaluación, no hay cálculo de gradientes ni actualización de pesos (solo forward pass)
 
-    ######## MÉTRICA I: NÚMERO DE PARÁMETROS ##############
+    ######## MÉTRICA: NÚMERO DE PARÁMETROS ##############
 
     # MÉTRICA: NÚMERO DE PARÁMETROS
     total_params = sum(p.numel() for p in model.parameters())
@@ -147,7 +167,7 @@ def main():
         for video_x, audio_x, text_x, labels in tqdm(eval_loader):
             video_x, audio_x, text_x = video_x.to(device), audio_x.to(device), text_x.to(device)
             
-            ######## MÉTRICA II: TIEMPO DE INFERENCIA ##############
+            ######## MÉTRICA: TIEMPO DE INFERENCIA ##############
             start_time = time.time()
             output = model(video_x, audio_x, text_x)
             end_time = time.time()
@@ -163,7 +183,8 @@ def main():
             all_preds.append(1 if prob > 0.5 else 0)
             all_labels.append(labels.item())
 
-    # CÁLCULO DE MÉTRICAS (accuracy, F1-Score Macro, F1-Score Weighted, AUC)
+    ######## MÉTRICAS : Accuracy, F1-Score Macro, F1-Score Weighted, AUC ##############
+
     media_tiempo_inferencia = np.mean(tiempo_inferencia) * 1000 # a milisegundos
     acc = accuracy_score(all_labels, all_preds)
     f1_macro = f1_score(all_labels, all_preds, average='macro')
@@ -179,17 +200,18 @@ def main():
     print(f"F1 Weighted: {f1_weighted:.4f}")
     print(f"Accuracy (en %): {acc*100:.2f}%")
 
-    #  MATRIZ DE CONFUSIÓN
+    ######## MÉTRICA : MATRIZ DE CONFUSIÓN ##############
+
     cm = confusion_matrix(all_labels, all_preds)
     plt.figure(figsize=(8, 6))
     sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=['No Estrés', 'Estrés'], yticklabels=['No Estrés', 'Estrés'])
     plt.title(f'Matriz de Confusión - {args.fusion.upper()}')
     plt.xlabel('Predicción')
     plt.ylabel('Real')
-    plt.savefig(f'Fig_6_1_1_matriz_confusion_modelo_{args.split}_{args.fusion}_{args.video}{args.video_frames}_{args.audio}{args.audio_len}s_{args.text}.png')
+    plt.savefig(f'Fig_matriz_confusion_modelo_{args.eval_dataset}_{args.split}_{args.fusion}_{args.video}{args.video_frames}_{args.audio}{args.audio_len}s_{args.text}.png')
+    plt.close()
 
-
-    # CURVA ROC
+    # GRÁFICO CURVA ROC:
     fpr, tpr, _ = roc_curve(all_labels, all_probs)
     plt.figure(figsize=(8, 6))
     plt.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (area = {auc:.2f})')
@@ -198,10 +220,11 @@ def main():
     plt.ylabel('True Positive Rate')
     plt.title('Receiver Operating Characteristic (ROC)')
     plt.legend(loc="lower right")
-    plt.savefig(f'Fig_6_1_2_curva_roc_modelo_{args.split}_{args.fusion}_{args.video}{args.video_frames}_{args.audio}{args.audio_len}s_{args.text}.png')
+    plt.savefig(f'Fig_curva_roc_modelo_{args.eval_dataset}_{args.split}_{args.fusion}_{args.video}{args.video_frames}_{args.audio}{args.audio_len}s_{args.text}.png')
+    plt.close()
 
-    # 9. INFORME FINAL (.txt)
-    with open(f"reporte_final_{args.split}_modelo_{args.fusion}_{args.video}{args.video_frames}_{args.audio}{args.audio_len}s_{args.text}.txt", "w") as f:
+    # INFORME FINAL (.txt)
+    with open(f"reporte_final_{args.eval_dataset}_{args.split}_modelo_{args.fusion}_{args.video}{args.video_frames}_{args.audio}{args.audio_len}s_{args.text}.txt", "w") as f:
         f.write(f"MODELO: {args.model_path}\n")
         f.write(f"Parámetros: {total_params}\n")
         f.write(f"Inferencia media: {media_tiempo_inferencia:.2f} ms\n")

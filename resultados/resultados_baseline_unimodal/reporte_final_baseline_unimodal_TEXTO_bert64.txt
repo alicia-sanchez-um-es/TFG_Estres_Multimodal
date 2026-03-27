@@ -1,0 +1,10 @@
+CODIFICADOR: bert64
+ROC-AUC: 0.8197
+              precision    recall  f1-score   support
+
+   No Estrés     0.8064    0.7985    0.8025      1638
+      Estrés     0.6771    0.6879    0.6824      1006
+
+    accuracy                         0.7564      2644
+   macro avg     0.7418    0.7432    0.7424      2644
+weighted avg     0.7572    0.7564    0.7568      2644

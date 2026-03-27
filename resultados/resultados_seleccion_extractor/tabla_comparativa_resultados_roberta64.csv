@@ -1,0 +1,8 @@
+Modelo,Modalidad,F1_Macro,AUC,Recall_Estres
+Baseline RoBERTa,Unimodal,0.7293,0.807,0.6978
+ResNet + Wav2Vec + RoBERTa,Multimodal,0.7137,0.8018,0.7724
+ViT + MFCCs (+ RMS + ZCR) + RoBERTa,Multimodal,0.7127,0.8099,0.7793
+ResNet + MFCCs (+ RMS + ZCR) + RoBERTa,Multimodal,0.7107,0.7981,0.7416
+EfficientNet + Wav2Vec + RoBERTa,Multimodal,0.7009,0.7959,0.7604
+EfficientNet + MFCCs (+ RMS + ZCR) + RoBERTa,Multimodal,0.6927,0.7871,0.7167
+ViT + Wav2Vec + RoBERTa,Multimodal,0.6868,0.7707,0.6859

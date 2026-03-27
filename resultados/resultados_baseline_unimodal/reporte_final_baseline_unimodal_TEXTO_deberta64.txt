@@ -1,0 +1,10 @@
+CODIFICADOR: deberta64
+ROC-AUC: 0.6756
+              precision    recall  f1-score   support
+
+   No Estrés     0.7323    0.5928    0.6552      1638
+      Estrés     0.4939    0.6471    0.5602      1006
+
+    accuracy                         0.6135      2644
+   macro avg     0.6131    0.6200    0.6077      2644
+weighted avg     0.6416    0.6135    0.6191      2644

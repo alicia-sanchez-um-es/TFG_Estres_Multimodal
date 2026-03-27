@@ -1,0 +1,8 @@
+Modelo,Modalidad,F1_Macro,AUC,Recall_Estres
+ResNet + Wav2Vec + DeBERTa,Multimodal,0.6678,0.7336,0.7992
+ResNet + MFCCs (+ RMS + ZCR) + DeBERTa,Multimodal,0.6663,0.7147,0.7097
+EfficientNet + MFCCs (+ RMS + ZCR) + DeBERTa,Multimodal,0.6418,0.6983,0.8012
+EfficientNet + Wav2Vec + DeBERTa,Multimodal,0.6381,0.689,0.7107
+ViT + Wav2Vec + DeBERTa,Multimodal,0.6346,0.7158,0.836
+ViT + MFCCs (+ RMS + ZCR) + DeBERTa,Multimodal,0.6312,0.7058,0.8141
+Baseline DeBERTa,Unimodal,0.6077,0.6756,0.6471

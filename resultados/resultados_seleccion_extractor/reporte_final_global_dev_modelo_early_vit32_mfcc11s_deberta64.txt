@@ -1,0 +1,12 @@
+MODELO: pesos_modelo_estres_global_early_vit32_mfcc11s_deberta64.pth
+Parámetros: 5487105
+Inferencia media: 2.97 ms
+ROC-AUC: 0.7058
+              precision    recall  f1-score   support
+
+   No Estrés     0.8197    0.5189    0.6355      1638
+      Estrés     0.5096    0.8141    0.6269      1006
+
+    accuracy                         0.6312      2644
+   macro avg     0.6647    0.6665    0.6312      2644
+weighted avg     0.7017    0.6312    0.6322      2644

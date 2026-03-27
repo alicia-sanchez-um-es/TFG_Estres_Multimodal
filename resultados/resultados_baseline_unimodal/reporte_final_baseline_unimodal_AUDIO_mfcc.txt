@@ -1,0 +1,10 @@
+CODIFICADOR: mfcc
+ROC-AUC: 0.5873
+              precision    recall  f1-score   support
+
+   No Estrés     0.6811    0.5269    0.5941      1638
+      Estrés     0.4372    0.5984    0.5052      1006
+
+    accuracy                         0.5541      2644
+   macro avg     0.5592    0.5626    0.5497      2644
+weighted avg     0.5883    0.5541    0.5603      2644

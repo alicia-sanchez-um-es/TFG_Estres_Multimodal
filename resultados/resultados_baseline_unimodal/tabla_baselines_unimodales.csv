@@ -1,0 +1,9 @@
+Modalidad,Modelo,Ventana,F1_Macro,AUC,Recall_Estres
+Vídeo,ResNet-50,32 frames,0.651,0.7347,0.8161
+Vídeo,ViT,32 frames,0.6485,0.707,0.8231
+Vídeo,EfficientNet,32 frames,0.6286,0.6897,0.8201
+Texto,BERT,64 tokens,0.7424,0.8197,0.6879
+Texto,RoBERTa,64 tokens,0.7293,0.807,0.6978
+Texto,DeBERTa,64 tokens,0.6077,0.6756,0.6471
+Audio,MFCCs (+ RMS + ZCR),11 seg,0.5497,0.5873,0.5984
+Audio,Wav2Vec 2.0,11 seg,0.4119,0.547,0.0368

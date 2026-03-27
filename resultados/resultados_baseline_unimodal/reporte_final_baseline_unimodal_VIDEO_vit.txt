@@ -1,0 +1,10 @@
+CODIFICADOR: vit
+ROC-AUC: 0.7070
+              precision    recall  f1-score   support
+
+   No Estrés     0.8329    0.5415    0.6563      1638
+      Estrés     0.5244    0.8231    0.6406      1006
+
+    accuracy                         0.6486      2644
+   macro avg     0.6786    0.6823    0.6485      2644
+weighted avg     0.7155    0.6486    0.6503      2644
