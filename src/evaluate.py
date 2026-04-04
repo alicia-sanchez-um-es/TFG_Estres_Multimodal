@@ -40,9 +40,7 @@ def parse_args():
     # ---> CONFIGURACIÓN DE ARQUITECTURA:
     parser.add_argument('--proj_dim', type=int, default=512, help='Dimensión de proyección')
     parser.add_argument('--hidden_mlp', type=int, default=128, help='Dimensión oculta del clasificador final')
-    parser.add_argument('--hidden_lstm', type=int, default=512, help='Dimensión oculta de la LSTM')
-    parser.add_argument('--lstm_layers', type=int, default=1, help='Número de capas de la LSTM')
-
+    
     # ---> ENTRENAMIENTO Y REGULARIZACIÓN
     parser.add_argument('--dropout', type=float, default=0.5, help='Probabilidad de Dropout')
 
@@ -59,28 +57,14 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     mapeo_rutas = {
-        'video': {
-            'resnet': 'features_resnet',
-            'vit': 'features_vit',
-            'efficientnet': 'features_efficientnet'
-        },
-        'audio': {
-            'wav2vec': 'features_audio_COMPLETO/audio_wav2vec',
-            'mfcc': 'features_audio_COMPLETO/audio_handcrafted'
-        },
-        'text': {
-            'roberta64': 'EMBEDDINGS_TEXT_ROBERTA_64',
-            'bert64': 'EMBEDDINGS_TEXT_BERT_64',
-            'deberta64': 'EMBEDDINGS_TEXT_DEBERTA_64',
-            'roberta32': 'EMBEDDINGS_TEXT_ROBERTA_32',
-            'bert32': 'EMBEDDINGS_TEXT_BERT_32',
-            'deberta32': 'EMBEDDINGS_TEXT_DEBERTA_32'
+        'video': 'EMBEDDINGS_VISUAL',
+        'audio': 'EMBEDDINGS_AUDIO',
+        'text': 'EMBEDDINGS_TEXTO'
         }
-    }
 
-    VIDEO_RUTA = mapeo_rutas['video'][args.video]
-    AUDIO_RUTA = mapeo_rutas['audio'][args.audio]
-    TEXTO_RUTA = mapeo_rutas['text'][args.text]
+    VIDEO_RUTA = mapeo_rutas['video']
+    AUDIO_RUTA = mapeo_rutas['audio']
+    TEXTO_RUTA = mapeo_rutas['text']
 
     BASE_DIR = os.path.expanduser('/workspace')
     csv_path = os.path.join(BASE_DIR, 'Multimodal_Stress_Dataset.csv')
@@ -92,7 +76,7 @@ def main():
     if args.eval_dataset != 'global':
         df_eval = df_eval[df_eval['dataset_origin'] == args.eval_dataset]
 
-    df_eval['file_id'] = (df_eval['Dialogue_ID'].astype(str) + "_" + df_eval['Utterance_ID'].astype(str)).str.replace("/", "_")
+    df_eval['file_id'] = (df_eval['dataset_origin'].astype(str) + "_" + df_eval['Utterance_ID'].astype(str)).str.replace("/", "_")
     eval_ids = df_eval['file_id'].tolist()
     eval_labels = df_eval['target_stress'].tolist()
 
@@ -125,11 +109,11 @@ def main():
     # -------------------------------------------
 
     if args.fusion == 'early':
-        model = EarlyFusionBase(visual_dim=VISUAL_INPUT_DIM, audio_dim=AUDIO_INPUT_DIM, text_dim=768, proj_dim=args.proj_dim, hidden_lstm=args.hidden_lstm, hidden_mlp=args.hidden_mlp, dropout_prob=args.dropout, lstm_layers=args.lstm_layers)
+        model = EarlyFusionBase(visual_dim=VISUAL_INPUT_DIM, audio_dim=AUDIO_INPUT_DIM, text_dim=768, proj_dim=args.proj_dim, hidden_mlp=args.hidden_mlp, dropout_prob=args.dropout)
     elif args.fusion == 'late':
-        model = LateFusionBase(visual_dim=VISUAL_INPUT_DIM, audio_dim=AUDIO_INPUT_DIM, text_dim=768, proj_dim=args.proj_dim, hidden_lstm=args.hidden_lstm, hidden_mlp=args.hidden_mlp, dropout_prob=args.dropout, lstm_layers=args.lstm_layers)
+        model = LateFusionBase(visual_dim=VISUAL_INPUT_DIM, audio_dim=AUDIO_INPUT_DIM, text_dim=768, proj_dim=args.proj_dim, hidden_mlp=args.hidden_mlp, dropout_prob=args.dropout)
     elif args.fusion == 'attention':
-        model = AttentionFusionBase(visual_dim=VISUAL_INPUT_DIM, audio_dim=AUDIO_INPUT_DIM, text_dim=768, proj_dim=args.proj_dim, hidden_lstm=args.hidden_lstm, hidden_mlp=args.hidden_mlp, dropout_prob=args.dropout, lstm_layers=args.lstm_layers)
+        model = AttentionFusionBase(visual_dim=VISUAL_INPUT_DIM, audio_dim=AUDIO_INPUT_DIM, text_dim=768, proj_dim=args.proj_dim, hidden_mlp=args.hidden_mlp, dropout_prob=args.dropout)
     else: 
         raise ValueError("Estrategia no válida. Usa: early, late, attention")
 
@@ -145,7 +129,11 @@ def main():
 
     eval_dataset = MultimodalStressDataset(
         subject_ids=eval_ids, 
-        labels=eval_labels, 
+        labels=eval_labels,
+        df = df_eval,
+        video_model_name = args.video,
+        audio_model_name = args.audio, 
+        text_model_name = args.text,
         base_dir=BASE_DIR,
         video_folder=VIDEO_RUTA,
         audio_folder=AUDIO_RUTA,

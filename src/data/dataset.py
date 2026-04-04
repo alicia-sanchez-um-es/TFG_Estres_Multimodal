@@ -13,11 +13,13 @@ class MultimodalStressDataset(Dataset):
     Permite seleccionar qué backbone visual, acústico y textual usar para cada experimento.
     """
     # CONSTRUCTOR:
-    def __init__(self, subject_ids, labels, base_dir, video_folder, audio_folder, text_folder, max_audio_len, max_video_frames):
+    def __init__(self, subject_ids, labels, df, video_model_name, audio_model_name, text_model_name, base_dir, video_folder, audio_folder, text_folder, max_audio_len, max_video_frames):
         """
         Entrada:
             subject_ids (list): IDs único (ej: '0_train_dia0_utt9.npy' ---> ID: '0_train_dia0_utt9') de cada vídeo/audio/texto.
             labels (list): Etiquetas de estrés (1/0).
+            df (DataFrame): dataframe del dataset seleccionado (MELD o IEMOCAP o global).
+            video_model_name: nombre del extractor de características visual seleccionado
             base_dir (str): Ruta raíz '~/dgx.../exp1/'
             video_folder (str):'features_resnet', 'features_vit', 'features_efficientnet'
             audio_folder (str): 'features_audio/audio_wav2vec', 'features_audio/audio_handacrafted'
@@ -27,6 +29,12 @@ class MultimodalStressDataset(Dataset):
         """
         self.subject_ids = subject_ids
         self.labels = labels
+        self.df = df 
+        self.video_model_name = video_model_name.upper() # RESNET o VIT o EFFICIENTNET
+        self.audio_model_name = audio_model_name.upper() # WAV2VEC o MFCC
+        nombre_texto = text_model_name[:-2].upper() ##### ---> Extraemos el nombre del modelo: 'bert64' ---> 'BERT'
+        ventana_texto = text_model_name[-2:].upper() #### ----> Extraemos el tamaño de ventana de contexto: 'bert64' ---> '64'
+        self.text_model_name = f"{nombre_texto}_{ventana_texto}" # Formateamos el texto: 'bert64' -> 'BERT_64'
         self.base_dir = base_dir
         self.max_audio_len = max_audio_len
         self.max_video_frames = max_video_frames
@@ -51,13 +59,14 @@ class MultimodalStressDataset(Dataset):
         """
         subject_id = self.subject_ids[idx]
         label = self.labels[idx]
+        origen = self.df.iloc[idx]['dataset_origin'] #MELD o IEMOCAP
 
         ## Se devuelven los embeddings tal cual los hemos obtenido (solo aplicamos padding/truncamiento al audio):
 
 
 
         # 1. Vídeo -----> FORMA TENSOR FINAL: ResNet (32, 2048), EfficientNet (32,1280), ViT (32, 768)
-        video_path = os.path.join(self.base_dir, self.video_folder, f"{subject_id}.npy")
+        video_path = os.path.join(self.base_dir, self.video_folder, self.video_model_name, origen, f"{subject_id}.npy")
         video_data = np.load(video_path) 
         video_tensor = torch.tensor(video_data, dtype=torch.float32)
 
@@ -73,7 +82,7 @@ class MultimodalStressDataset(Dataset):
 
         
         # 2. AUDIO -----> FORMA TENSOR FINAL: Wav2Vec (max_audio_len, 768), MFCCs (max_audio_len, 15)
-        audio_path = os.path.join(self.base_dir, self.audio_folder, f"{subject_id}.npy")
+        audio_path = os.path.join(self.base_dir, self.audio_folder, self.audio_model_name, origen, f"{subject_id}.npy")
         audio_data = np.load(audio_path)
         audio_tensor = torch.tensor(audio_data, dtype=torch.float32)
         ######## PADDING/TRUNCAMIENTO ##########
@@ -88,7 +97,7 @@ class MultimodalStressDataset(Dataset):
 
 
         # 3. TEXTO ----> FORMA TENSOR FINAL: BERT/RoBERTa/DeBERTa (768, ) (ya que el [CLS] token devuelve el embedding que representa a toda la secuencia, equivalente a la LSTM que aplicaremos en audio/vídeo)
-        text_path = os.path.join(self.base_dir, self.text_folder, f"{subject_id}.npy")
+        text_path = os.path.join(self.base_dir, self.text_folder, self.text_model_name, origen, f"{subject_id}.npy")
         text_data = np.load(text_path)
         # Independientemente de si es 32 o 64 tokens, el [CLS] siempre está en la posición 0 para BERT, RoBERTa y DeBERTa.
         text_tensor = torch.tensor(text_data[0, :], dtype=torch.float32)

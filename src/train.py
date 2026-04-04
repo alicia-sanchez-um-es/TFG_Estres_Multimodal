@@ -7,7 +7,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-from sklearn.metrics import f1_score
+from sklearn.metrics import f1_score, recall_score
 # Importamos las clases que hemos creado:
 from data.dataset import MultimodalStressDataset
 from models.fusion_strategies import EarlyFusionBase, LateFusionBase, AttentionFusionBase
@@ -44,8 +44,6 @@ def parse_args():
     # ---> CONFIGURACIÓN DE ARQUITECTURA:
     parser.add_argument('--proj_dim', type=int, default=512, help='Dimensión de proyección')
     parser.add_argument('--hidden_mlp', type=int, default=128, help='Dimensión oculta del clasificador final')
-    parser.add_argument('--hidden_lstm', type=int, default=512, help='Dimensión oculta de la LSTM')
-    parser.add_argument('--lstm_layers', type=int, default=1, help='Número de capas de la LSTM')
 
     # ---> ENTRENAMIENTO Y REGULARIZACIÓN
     parser.add_argument('--lr', type=float, default=1e-4, help='Learning rate')
@@ -66,28 +64,14 @@ def main():
     # MAPEO DE RUTAS
     # -------------------------------------------
     mapeo_rutas = {
-        'video': {
-            'resnet': 'features_resnet',
-            'vit': 'features_vit',
-            'efficientnet': 'features_efficientnet'
-        },
-        'audio': {
-            'wav2vec': 'features_audio_COMPLETO/audio_wav2vec',
-            'mfcc': 'features_audio_COMPLETO/audio_handcrafted'
-        },
-        'text': {
-            'roberta64': 'EMBEDDINGS_TEXT_ROBERTA_64',
-            'bert64': 'EMBEDDINGS_TEXT_BERT_64',
-            'deberta64': 'EMBEDDINGS_TEXT_DEBERTA_64',
-            'roberta32': 'EMBEDDINGS_TEXT_ROBERTA_32',
-            'bert32': 'EMBEDDINGS_TEXT_BERT_32',
-            'deberta32': 'EMBEDDINGS_TEXT_DEBERTA_32'
+        'video': 'EMBEDDINGS_VISUAL',
+        'audio': 'EMBEDDINGS_AUDIO',
+        'text': 'EMBEDDINGS_TEXTO'
         }
-    }
 
-    VIDEO_RUTA = mapeo_rutas['video'][args.video]
-    AUDIO_RUTA = mapeo_rutas['audio'][args.audio]
-    TEXTO_RUTA = mapeo_rutas['text'][args.text]
+    VIDEO_RUTA = mapeo_rutas['video']
+    AUDIO_RUTA = mapeo_rutas['audio']
+    TEXTO_RUTA = mapeo_rutas['text']
 
     #------------------------------------------------------------------
     # CÁLCULO DINÁMICO DE PASOS DE TIEMPO (TIME STEPS) Y MAX_AUDIO_LEN
@@ -139,8 +123,8 @@ def main():
         df = df[df['dataset_origin'] == args.train_dataset]
 
     # Creamos una columna temporal llamada 'file_id' en df con el nombre exacto de los archivos .npy (sin la extensión)
-    # FORMATO: "Dialogue_ID_Utterance_ID" reemplanzando cualquier barra por guión bajo
-    df['file_id'] = (df['Dialogue_ID'].astype(str) + "_" + df['Utterance_ID'].astype(str)).str.replace("/", "_")
+    # FORMATO: "(dataset_origin)_(Utterance_ID)" reemplanzando cualquier barra por guión bajo
+    df['file_id'] = (df['dataset_origin'].astype(str) + "_" + df['Utterance_ID'].astype(str)).str.replace("/", "_")
 
     # FILTRAMOS los datos de TRAIN (Columna 'split' == 'train') y los de Validación ('dev'):
     df_train = df[df['split']=='train']
@@ -164,6 +148,10 @@ def main():
     train_dataset = MultimodalStressDataset(
         subject_ids=train_ids,
         labels= train_labels,
+        df=df_train,
+        video_model_name = args.video,
+        audio_model_name = args.audio,
+        text_model_name = args.text,
         base_dir= BASE_DIR,  # La ruta hacia nuestro workspace en el servidor
         video_folder= VIDEO_RUTA,
         audio_folder= AUDIO_RUTA,
@@ -179,6 +167,10 @@ def main():
     val_dataset = MultimodalStressDataset(
         subject_ids=val_ids,
         labels= val_labels,
+        df=df_val,
+        video_model_name = args.video,
+        audio_model_name = args.audio,
+        text_model_name = args.text,
         base_dir=BASE_DIR,  
         video_folder=VIDEO_RUTA,
         audio_folder=AUDIO_RUTA,
@@ -195,11 +187,11 @@ def main():
     # INSTANCIACIÓN DEL MODELO Y MECANISMO EARLY STOPPING
     # ---------------------------------------------------------
     if args.fusion == 'early':
-        model = EarlyFusionBase(visual_dim=VISUAL_INPUT_DIM, audio_dim=AUDIO_INPUT_DIM, text_dim=768, proj_dim=args.proj_dim, hidden_lstm=args.hidden_lstm, hidden_mlp=args.hidden_mlp, dropout_prob=args.dropout, lstm_layers=args.lstm_layers)
+        model = EarlyFusionBase(visual_dim=VISUAL_INPUT_DIM, audio_dim=AUDIO_INPUT_DIM, text_dim=768, proj_dim=args.proj_dim, hidden_mlp=args.hidden_mlp, dropout_prob=args.dropout)
     elif args.fusion == 'late':
-        model = LateFusionBase(visual_dim=VISUAL_INPUT_DIM, audio_dim=AUDIO_INPUT_DIM, text_dim=768, proj_dim=args.proj_dim, hidden_lstm=args.hidden_lstm, hidden_mlp=args.hidden_mlp, dropout_prob=args.dropout, lstm_layers=args.lstm_layers)
+        model = LateFusionBase(visual_dim=VISUAL_INPUT_DIM, audio_dim=AUDIO_INPUT_DIM, text_dim=768, proj_dim=args.proj_dim, hidden_mlp=args.hidden_mlp, dropout_prob=args.dropout)
     elif args.fusion == 'attention':
-        model = AttentionFusionBase(visual_dim=VISUAL_INPUT_DIM, audio_dim=AUDIO_INPUT_DIM, text_dim=768, proj_dim=args.proj_dim, hidden_lstm=args.hidden_lstm, hidden_mlp=args.hidden_mlp, dropout_prob=args.dropout, lstm_layers=args.lstm_layers)
+        model = AttentionFusionBase(visual_dim=VISUAL_INPUT_DIM, audio_dim=AUDIO_INPUT_DIM, text_dim=768, proj_dim=args.proj_dim, hidden_mlp=args.hidden_mlp, dropout_prob=args.dropout)
     else: 
         raise ValueError("Estrategia no válida. Usa: early, late, attention")
     
@@ -242,7 +234,7 @@ def main():
         'train_loss': [],
         'val_loss':[],
         'val_f1':[],
-        'val_acc':[]
+        'val_recall_estres':[]
     }
 
     nombre_historial = f"historial_estres_{args.train_dataset}_{args.fusion}_{args.video}{args.video_frames}_{args.audio}{args.audio_len}s_{args.text}.json"
@@ -288,8 +280,6 @@ def main():
         #==============================
         model.eval() # Apagamos el dropout para la validación
         val_loss = 0.0
-        correct_predictions = 0
-        total_samples = 0
 
         # Listas temporales para el F1-Score de esta epoch:
         epoch_labels = []
@@ -314,25 +304,25 @@ def main():
                 # Con BCEWithLogitsLoss, al tener logits a la salida, aplicamos Sigmoide ahora:
                 probabilidades = torch.sigmoid(predictions)
                 predicted_labels = (probabilidades > 0.5).float() 
-                correct_predictions += (predicted_labels == labels).sum().item()
-                total_samples += labels.size(0)
 
                 epoch_labels.extend(labels.cpu().numpy().flatten()) #Utilizamos .flatten() para aplanar a [Batch] y evitar errores con scikit-learn
                 epoch_preds.extend(predicted_labels.cpu().numpy().flatten())
 
         val_loss = val_loss / len(val_loader)
-        val_accuracy = correct_predictions / total_samples 
 
         # Calculamos el F1-Score Macro para penalizar el desbalanceo:
         val_f1 = f1_score(epoch_labels, epoch_preds, average='macro')
 
+        # Calculamos el Recall de la clase estrés (pos_label=1):
+        val_recall_estres = recall_score(epoch_labels, epoch_preds, pos_label=1, zero_division=0)
+
         # Mostramos resultados de la epoch:
-        print(f"Epoch {epoch+1}. Train Loss: {train_loss:.4f}. Val Loss: {val_loss:.4f}. Val Acc: {val_accuracy*100:.2f}%. Val F1 Macro: {val_f1:.4f}\n")
+        print(f"Epoch {epoch+1}. Train Loss: {train_loss:.4f}. Val Loss: {val_loss:.4f}. Val F1 Macro: {val_f1:.4f}. Val Recall Estrés: {val_recall_estres:.4f}\n")
 
         history['train_loss'].append(train_loss)
         history['val_loss'].append(val_loss)
         history['val_f1'].append(val_f1)
-        history['val_acc'].append(val_accuracy)
+        history['val_recall_estres'].append(val_recall_estres)
 
         # ---------------------------------------------
         # EARLY STOPPING Y CHECKPOINT

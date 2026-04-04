@@ -17,10 +17,14 @@ class EarlyFusionBase(nn.Module):
     Devuelve:
     - Un valor entre 0 y 1 que representa la probabilidad de que el vídeo esté etiquetado como Estrés (1) o No Estrés (0).
     """
-    def __init__(self, visual_dim=2048, audio_dim=768, text_dim=768, proj_dim=512, hidden_lstm=512, hidden_mlp=512, dropout_prob=0.5, lstm_layers=1):
+    def __init__(self, visual_dim=2048, audio_dim=768, text_dim=768, proj_dim=512, hidden_mlp=512, dropout_prob=0.5, lstm_layers=1):
         super(EarlyFusionBase, self).__init__()
 
         # Este constructor sirve de "pegamento" para los adaptadores creados en adapters.py y el MLP FINAL para clasificación definido a continuación
+
+        # Antes de definir los adaptadores, debemos calcular la dimensión de la capa oculta con un valor razonable derivado de las dimensiones iniciales del vector de características recibido por la LSTM:
+        hidden_lstm = max(proj_dim, visual_dim // 4) # Para embeddings iniciales de alta dimensionalidad (por ejemplo, ResNet con 2048 dimensiones o EfficientNet con 1280 dimensiones) la LSTM actúa como paso intermedio para no comprimir de golpe a proj_dim, sino de manera gradual. Para embedding con un menor número de dimensiones (por ejemplo, BERT, RoBERTa, DeBERTa, MFCCs o Wav2Vec, se fija proj_dim directamente).
+
         
         # 1. Instanciamos los Adaptadores 
         self.visual_adapter = VisualAdapter(input_dim=visual_dim, projection_dim=proj_dim, hidden_lstm=hidden_lstm, dropout_prob=dropout_prob, lstm_layers=lstm_layers)
@@ -97,8 +101,11 @@ class LateFusionBase(nn.Module):
     - Pasa cada representación unimodal por su propio clasificador (MLP unimodal).
     - Promedia los logits finales antes de aplicar la función de pérdida.
     """
-    def __init__(self, visual_dim=2048, audio_dim=768, text_dim=768, proj_dim=512, hidden_lstm=512, hidden_mlp=128, dropout_prob=0.5, lstm_layers=1):
+    def __init__(self, visual_dim=2048, audio_dim=768, text_dim=768, proj_dim=512, hidden_mlp=128, dropout_prob=0.5, lstm_layers=1):
         super(LateFusionBase, self).__init__()
+
+         # Antes de definir los adaptadores, debemos calcular la dimensión de la capa oculta con un valor razonable derivado de las dimensiones iniciales del vector de características recibido por la LSTM:
+        hidden_lstm = max(proj_dim, visual_dim // 4) # Para embeddings iniciales de alta dimensionalidad (por ejemplo, ResNet con 2048 dimensiones o EfficientNet con 1280 dimensiones) la LSTM actúa como paso intermedio para no comprimir de golpe a proj_dim, sino de manera gradual. Para embedding con un menor número de dimensiones (por ejemplo, BERT, RoBERTa, DeBERTa, MFCCs o Wav2Vec, se fija proj_dim directamente).
 
         # 1. Instanciamos los Adaptadores (igual que en Early Fusion anterior)
         self.visual_adapter = VisualAdapter(input_dim=visual_dim, projection_dim=proj_dim, hidden_lstm=hidden_lstm, dropout_prob=dropout_prob, lstm_layers=lstm_layers)
@@ -170,8 +177,11 @@ class AttentionFusionBase(nn.Module):
     Esta red aprende a ponderar dinámicamente la importancia de cada modalidad (Vídeo, Audio, Texto)
     para cada muestra de forma independiente
     """
-    def __init__(self, visual_dim=2048, audio_dim=768, text_dim=768, proj_dim=512, hidden_lstm=512, hidden_mlp=128, dropout_prob=0.5, lstm_layers=1):
+    def __init__(self, visual_dim=2048, audio_dim=768, text_dim=768, proj_dim=512, hidden_mlp=128, dropout_prob=0.5, lstm_layers=1):
         super(AttentionFusionBase, self).__init__()
+
+         # Antes de definir los adaptadores, debemos calcular la dimensión de la capa oculta con un valor razonable derivado de las dimensiones iniciales del vector de características recibido por la LSTM:
+        hidden_lstm = max(proj_dim, visual_dim // 4) # Para embeddings iniciales de alta dimensionalidad (por ejemplo, ResNet con 2048 dimensiones o EfficientNet con 1280 dimensiones) la LSTM actúa como paso intermedio para no comprimir de golpe a proj_dim, sino de manera gradual. Para embedding con un menor número de dimensiones (por ejemplo, MFCCs o Wav2Vec, se fija proj_dim directamente).
 
         # 1. Instanciamos los Adaptadores (lo mismo que hemos hecho para cada una de las estrategias, la salida es de `proj_dim` dims por cada modalidad)
         self.visual_adapter = VisualAdapter(input_dim=visual_dim, projection_dim=proj_dim, hidden_lstm=hidden_lstm, dropout_prob=dropout_prob, lstm_layers=lstm_layers)

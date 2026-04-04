@@ -24,20 +24,16 @@ import torch.nn as nn
 
 class VisualAdapter(nn.Module):
     """Adaptador para características visuales con modelado temporal (LSTM)"""
-    def __init__(self, input_dim=2048, projection_dim=512, hidden_lstm=512, dropout_prob=0.5, lstm_layers=1):
+    def __init__(self, input_dim=2048, projection_dim=512, hidden_lstm=512, dropout_prob=0.5):
         super(VisualAdapter, self).__init__()
 
         # PRIMERA CAPA: Red Recurrente (LSTM)
         # Lee los 32 frames secuencialmente de una muestra y reduce la dimensionalidad original (ej. de 2048 en ResNet) a un estado oculto de (ej. 512 dimensiones)
 
-        # PyTorch aconseja que cuando la LSTM cuenta con más de una capa, se aplique dropout interno:
-        lstm_dropout = dropout_prob if lstm_layers > 1 else 0
-
         self.lstm = nn.LSTM(input_dim, 
                             hidden_lstm, # En la último paso de la red (último frame), nos quedaremos con el vector resultante de la CAPA OCULTA,  y es el que contiene la información y memoria de toda la secuencia
-                            num_layers=lstm_layers, 
-                            batch_first=True, # IMPORTANTE! Ya que nuestro tensor es de tamaño (Batch, Tiempo, Características) y no (Tiempo, Batch, Características) como esperaría PyTorch
-                            dropout=lstm_dropout
+                            num_layers=1, 
+                            batch_first=True # IMPORTANTE! Ya que nuestro tensor es de tamaño (Batch, Tiempo, Características) y no (Tiempo, Batch, Características) como esperaría PyTorch
                         )
 
         # EJEMPLO DE RESULTADO CON VALORES PREDETERMINADOS: (Batch, 32, 2048) ---> (Batch, 512)    (Cada vídeo (32 frames) queda representado con un vector de 512 dimensiones únicamente)
@@ -70,20 +66,17 @@ class AudioAdapter(nn.Module):
     Se incluye una lógica dinámica para evitar expansiones agresivas si la entrada es de baja dimensionalidad (en el caso de MFCC, que es de tan solo 15 dimensiones),
     donde en este caso último se aplica una expansión gradual.
     """
-    def __init__(self, input_dim=768, projection_dim=512, hidden_lstm=512, dropout_prob=0.5, lstm_layers=1):
+    def __init__(self, input_dim=768, projection_dim=512, hidden_lstm=512, dropout_prob=0.5):
         super(AudioAdapter, self).__init__()
         
         # MFCC -> 15 dims, Wav2Vec -> 768 dims
         # Hacemos una expansión gradual usando la memoria de la LSTM y luego lineal
 
-        lstm_dropout = dropout_prob if lstm_layers > 1 else 0
-
         self.lstm = nn.LSTM(
             input_size=input_dim,
             hidden_size=hidden_lstm, 
-            num_layers=lstm_layers, 
-            batch_first=True,
-            dropout=lstm_dropout                  
+            num_layers=1, # Se fija a 1 para evitar que el sobreajuste (evitar así que la red memorice los datos) 
+            batch_first=True                 
         )
 
         # EJ para MFCCs: RESULTADO: (Batch, max_audio_len, 15) --> (Batch, 512)
