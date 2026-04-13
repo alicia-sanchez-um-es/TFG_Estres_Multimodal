@@ -12,7 +12,7 @@ from tqdm import tqdm
 from sklearn.metrics import f1_score, accuracy_score, confusion_matrix, classification_report, roc_auc_score, roc_curve
 # Importamos las clases que hemos creado:
 from data.dataset import MultimodalStressDataset
-from models.fusion_strategies import EarlyFusionBase, LateFusionBase, AttentionFusionBase
+from models.fusion_strategies import EarlyFusion, LateFusion, AttentionFusion
 
 def parse_args():
     # Argumentos de entrada por terminal directamente: 
@@ -30,6 +30,10 @@ def parse_args():
 
     # 2. ESTRATEGIA DE FUSIÓN:
     parser.add_argument('--fusion', type=str, default='early', choices=['early', 'late', 'attention'], help='Estrategia de fusión (early, late o attention)')
+    # Para Late Fusion, se indica también la técnica de fusión a utilizar:
+    parser.add_argument('--late_mode', type=str, default='promedio',
+                    choices=['voto', 'promedio', 'logistica'],
+                    help='Técnica de combinación de decisiones para Late Fusion')
 
     # 3. HIPERPARÁMETROS A AJUSTAR:
 
@@ -109,11 +113,11 @@ def main():
     # -------------------------------------------
 
     if args.fusion == 'early':
-        model = EarlyFusionBase(visual_dim=VISUAL_INPUT_DIM, audio_dim=AUDIO_INPUT_DIM, text_dim=768, proj_dim=args.proj_dim, hidden_mlp=args.hidden_mlp, dropout_prob=args.dropout)
+        model = EarlyFusion(visual_dim=VISUAL_INPUT_DIM, audio_dim=AUDIO_INPUT_DIM, text_dim=768, proj_dim=args.proj_dim, hidden_mlp=args.hidden_mlp, dropout_prob=args.dropout)
     elif args.fusion == 'late':
-        model = LateFusionBase(visual_dim=VISUAL_INPUT_DIM, audio_dim=AUDIO_INPUT_DIM, text_dim=768, proj_dim=args.proj_dim, hidden_mlp=args.hidden_mlp, dropout_prob=args.dropout)
+        model = LateFusion(visual_dim=VISUAL_INPUT_DIM, audio_dim=AUDIO_INPUT_DIM, text_dim=768, proj_dim=args.proj_dim, hidden_mlp=args.hidden_mlp, dropout_prob=args.dropout, fusion_mode=args.late_mode)
     elif args.fusion == 'attention':
-        model = AttentionFusionBase(visual_dim=VISUAL_INPUT_DIM, audio_dim=AUDIO_INPUT_DIM, text_dim=768, proj_dim=args.proj_dim, hidden_mlp=args.hidden_mlp, dropout_prob=args.dropout)
+        model = AttentionFusion(visual_dim=VISUAL_INPUT_DIM, audio_dim=AUDIO_INPUT_DIM, text_dim=768, proj_dim=args.proj_dim, hidden_mlp=args.hidden_mlp, dropout_prob=args.dropout)
     else: 
         raise ValueError("Estrategia no válida. Usa: early, late, attention")
 
@@ -166,10 +170,12 @@ def main():
             # prob = output.item()
 
             # Con BCEWithLogitsLoss:
-            prob = torch.sigmoid(output).item() # Aplicamos Sigmoide para convertir el logit en probabilidad de estrés (0 a 1)
-            all_probs.append(prob)
-            all_preds.append(1 if prob > 0.5 else 0)
-            all_labels.append(labels.item())
+            probs = torch.sigmoid(output) # Aplicamos Sigmoide para convertir el logit en probabilidad de estrés (0 a 1)
+            preds = (probs > 0.5).float()
+
+            all_labels.extend(labels.cpu().numpy().flatten().tolist()) #Utilizamos .flatten() para aplanar a [Batch] y evitar errores con scikit-learn
+            all_preds.extend(preds.cpu().numpy().flatten().tolist())
+            all_probs.extend(probs.cpu().numpy().flatten().tolist())
 
     ######## MÉTRICAS : Accuracy, F1-Score Macro, F1-Score Weighted, AUC ##############
 
@@ -188,6 +194,8 @@ def main():
     print(f"F1 Weighted: {f1_weighted:.4f}")
     print(f"Accuracy (en %): {acc*100:.2f}%")
 
+    nombre_base = os.path.basename(args.model_path).replace('.pth', '')
+
     ######## MÉTRICA : MATRIZ DE CONFUSIÓN ##############
 
     cm = confusion_matrix(all_labels, all_preds)
@@ -196,7 +204,7 @@ def main():
     plt.title(f'Matriz de Confusión - {args.fusion.upper()}')
     plt.xlabel('Predicción')
     plt.ylabel('Real')
-    plt.savefig(f'Fig_matriz_confusion_modelo_{args.eval_dataset}_{args.split}_{args.fusion}_{args.video}{args.video_frames}_{args.audio}{args.audio_len}s_{args.text}.png')
+    plt.savefig(f'Fig_matriz_{nombre_base}_{args.eval_dataset}_{args.split}.png')
     plt.close()
 
     # GRÁFICO CURVA ROC:
@@ -208,11 +216,11 @@ def main():
     plt.ylabel('True Positive Rate')
     plt.title('Receiver Operating Characteristic (ROC)')
     plt.legend(loc="lower right")
-    plt.savefig(f'Fig_curva_roc_modelo_{args.eval_dataset}_{args.split}_{args.fusion}_{args.video}{args.video_frames}_{args.audio}{args.audio_len}s_{args.text}.png')
+    plt.savefig(f'Fig_roc_{nombre_base}_{args.eval_dataset}_{args.split}.png')
     plt.close()
 
     # INFORME FINAL (.txt)
-    with open(f"reporte_final_{args.eval_dataset}_{args.split}_modelo_{args.fusion}_{args.video}{args.video_frames}_{args.audio}{args.audio_len}s_{args.text}.txt", "w") as f:
+    with open(f"reporte_{nombre_base}_{args.eval_dataset}_{args.split}.txt", "w") as f:
         f.write(f"MODELO: {args.model_path}\n")
         f.write(f"Parámetros: {total_params}\n")
         f.write(f"Inferencia media: {media_tiempo_inferencia:.2f} ms\n")

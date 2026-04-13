@@ -5,7 +5,7 @@ import torch.nn as nn
 # ARQUITECTURA MODULAR: ADAPTADORES
 # ----------------------------------------------------------------------
 # En esta sección, definimos adaptadores específicos para cada tipo de característica (visual, auditiva y textual).
-# Cada adaptador es una pequeña LSTM + red neuronal con capas lineales que toma las características extraídas por los modelos preentados (ResNet, ViT, Wav2Vec, RoBERTa, etc.) 
+# Cada adaptador es una pequeña LSTM + red neuronal con capas lineales que toma las características extraídas por los modelos preentrenados (ResNet, ViT, Wav2Vec, RoBERTa, etc.) 
 # y las proyecta a un espacio común latente (manifold).
 # Estos adaptadores permiten que las características de diferentes modalidades sean compatibles para la fusión multimodal posterior.
 # ----------------------------------------------------------------------
@@ -16,11 +16,11 @@ import torch.nn as nn
 # Esto pasa por una red LSTM en cada adaptador visual y acústico, que procesa la secuencia
 # paso a paso. 
 # Gracias a la arquitectura de la GPU del servidor DGX, este cálculo se realiza en paralelo para todas las muestras del batch, para obtener un único vector final (hn[-1]) que condensa
-# toda la dinámica temporal en un tensor 2D (Batch, Características).
+# toda la dinámica temporal en un tensor 2D (Batch, Características). La LSTM "comprime" la dimensión temporal.
 # El Texto se procesa directamente en capas lineales porque el token [CLS] de BERT/RoBERTa/DeBERTa ya actúa como un resumen semántico 2D, y no haría falta aplicar LSTM.
 
-# NOTA 3: La memoria limitada y el problema de explosión/desvanecimiento típico de las LSTM a aplicar en los adaptadores visual/audio NO afectará en nuestro caso,
-# ya que la dimensión temporal en los vídeos es de 32 frames (menor a 100, por tanto es una longitud óptima para LSTM) y en audio, será de una mayor longitud (aplicando padding), pero no supondrá un problema crítico. 
+# NOTA 3: La memoria limitada y el problema de explosión/desvanecimiento típico de las LSTM en los adaptadores visual/audio NO afectará en nuestro caso,
+# ya que la dimensión temporal en los vídeos es de 32 frames (menor a 100, por tanto es una longitud óptima para LSTM) y en audio, será de una mayor longitud (aplicando padding), pero no supondrá un problema crítico
 
 class VisualAdapter(nn.Module):
     """Adaptador para características visuales con modelado temporal (LSTM)"""
@@ -32,7 +32,7 @@ class VisualAdapter(nn.Module):
 
         self.lstm = nn.LSTM(input_dim, 
                             hidden_lstm, # En la último paso de la red (último frame), nos quedaremos con el vector resultante de la CAPA OCULTA,  y es el que contiene la información y memoria de toda la secuencia
-                            num_layers=1, 
+                            num_layers=1, # Se fija a 1 para evitar el sobreajuste (evitar así que la red memorice los datos)
                             batch_first=True # IMPORTANTE! Ya que nuestro tensor es de tamaño (Batch, Tiempo, Características) y no (Tiempo, Batch, Características) como esperaría PyTorch
                         )
 
@@ -70,12 +70,12 @@ class AudioAdapter(nn.Module):
         super(AudioAdapter, self).__init__()
         
         # MFCC -> 15 dims, Wav2Vec -> 768 dims
-        # Hacemos una expansión gradual usando la memoria de la LSTM y luego lineal
+        # Hacemos una expansión gradual (para MFCCs) usando la memoria de la LSTM y luego lineal
 
         self.lstm = nn.LSTM(
             input_size=input_dim,
             hidden_size=hidden_lstm, 
-            num_layers=1, # Se fija a 1 para evitar que el sobreajuste (evitar así que la red memorice los datos) 
+            num_layers=1, # Se fija a 1 para evitar el sobreajuste (evitar así que la red memorice los datos) 
             batch_first=True                 
         )
 
