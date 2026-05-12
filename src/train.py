@@ -10,10 +10,12 @@ from tqdm import tqdm
 from sklearn.metrics import f1_score, recall_score
 # Importamos las clases que hemos creado:
 from data.dataset import MultimodalStressDataset
+from models.unimodal_classifier import UnimodalClassifier
+from models.adapters import VisualAdapter, AudioAdapter, TextAdapter
 from models.fusion_strategies import EarlyFusion, LateFusion, AttentionFusion
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Entrenamiento Multimodal para Detección de Estrés")
+    parser = argparse.ArgumentParser(description="Entrenamiento Multimodal (Trimodal/Bimodal) para Detección de Estrés")
 
     # Argumentos de entrada por terminal directamente: 
 
@@ -22,12 +24,12 @@ def parse_args():
                         help='Corpus de entrenamiento: global (ambos), MELD o IEMOCAP')
 
     # 2. BACKBONES:
-    parser.add_argument('--video', type=str, required=True, choices=['resnet', 'vit', 'efficientnet'], 
-                        help='Backbone visual a utilizar')
-    parser.add_argument('--audio', type=str, required=True, choices=['wav2vec', 'mfcc'], 
-                        help='Backbone acústico a utilizar')
-    parser.add_argument('--text', type=str, required=True, choices=['roberta64', 'bert64', 'deberta64', 'bert32', 'roberta32', 'deberta32'], 
-                        help='Backbone textual a utilizar y su ventana de tokens')
+    parser.add_argument('--video', type=str, default=None, choices=['resnet', 'vit', 'efficientnet'], 
+                        help='Backbone visual a utilizar (no poner nada si no se usa vídeo)')
+    parser.add_argument('--audio', type=str, default=None, choices=['wav2vec', 'mfcc'], 
+                        help='Backbone acústico a utilizar (no poner nada si no se usa audio)')
+    parser.add_argument('--text', type=str, default=None, choices=['roberta64', 'bert64', 'deberta64', 'bert32', 'roberta32', 'deberta32'], 
+                        help='Backbone textual a utilizar y su ventana de tokens (no poner nada si no se usa texto)')
     
     # 3. ESTRATEGIA DE FUSIÓN:
     parser.add_argument('--fusion', type=str, default='early', choices=['early', 'late', 'attention'],
@@ -57,12 +59,32 @@ def parse_args():
     parser.add_argument('--epochs', type=int, default=20, help='Número máximo de epochs')
     parser.add_argument('--patience', type=int, default=5, help='Paciencia para Early Stopping')
     parser.add_argument('--pos_weight_mult', type=float, default=1.0, help='Multiplicador para el peso de la clase positiva')
+
+    # 5. TRANSFER-LEARNING: Entrenamiento con corpus MSP-IMPROV + MELD/IEMOCAP:
+    parser.add_argument('--transfer_learning', type=str, default=None, choices=['MELD_MSP-IMPROV', 'IEMOCAP_MSP-IMPROV'],
+                        help='Activa la evaluación de transferencia cruzada entrenando con la combinación indicada. Sobrescribe a --train_dataset. Solo aplicable para arquitecturas trimodales.')
     
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
+
+    mods = []
+    if args.video is not None: mods.append('video')
+    if args.audio is not None: mods.append('audio')
+    if args.text is not None: mods.append('texto')
+
+    #------------------------------------------------------------------
+    # CONFIGURACIÓN DEL ENTORNO
+    # -----------------------------------------------------------------
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    # Hiperparámetros básicos:
+    BATCH_SIZE = args.batch_size 
+    LEARNING_RATE = args.lr
+    EPOCHS = args.epochs
 
     # -------------------------------------------
     # MAPEO DE RUTAS
@@ -78,8 +100,62 @@ def main():
     TEXTO_RUTA = mapeo_rutas['text']
 
     #------------------------------------------------------------------
-    # CÁLCULO DINÁMICO DE PASOS DE TIEMPO (TIME STEPS) Y MAX_AUDIO_LEN
+    # CÁLCULO DINÁMICO DATOS EN SERVIDOR DGX y DE PASOS DE TIEMPO (TIME STEPS)/MAX_AUDIO_LEN
     # -----------------------------------------------------------------
+
+    # -------------- 1. CARGA DE DATOS train y dev -------------------
+
+    BASE_DIR = os.path.expanduser('/workspace')
+    csv_path = os.path.join(BASE_DIR, 'Multimodal_Stress_Dataset.csv')
+    df = pd.read_csv(csv_path)
+    # Creamos una columna temporal llamada 'file_id' en df con el nombre exacto de los archivos .npy (sin la extensión)
+    # FORMATO: "(dataset_origin)_(Utterance_ID)" reemplanzando cualquier barra por guión bajo
+    df['file_id'] = (df['dataset_origin'].astype(str) + "_" + df['Utterance_ID'].astype(str)).str.replace("/", "_") 
+
+        # -------------------------- VALIDACIÓN TRANSFER LEARNING: MSP-IMPROV + MELD/IEMOCAP ------------------
+
+    if args.transfer_learning is not None: 
+        csv_path = os.path.join(BASE_DIR, 'MSP-Improv_clean.csv')
+        df_msp = pd.read_csv(csv_path)
+        df_msp['dataset_origin'] = 'MSP-IMPROV' # <- Ahora sí añadimos la columna que indique el origen del dataset, ya que concatenará con MELD o IEMOCAP a continuación
+
+        if args.transfer_learning == 'MELD_MSP-IMPROV':
+            df = df[df['dataset_origin'] == 'MELD']
+
+        elif args.transfer_learning == 'IEMOCAP_MSP-IMPROV':
+            df = df[df['dataset_origin'] == 'IEMOCAP']
+        
+        df = pd.concat([df, df_msp], ignore_index=True)
+        
+
+        # ------------------------- MELD / IEMOCAP / GLOBAL (MELD + IEMOCAP) --------------------------
+    else:
+        # Si se ha seleccionado los datasets individuales, filtramos el dataset global por la columna 'dataset_origin':
+        if args.train_dataset != 'global':
+            df = df[df['dataset_origin'] == args.train_dataset]
+
+    
+    # FILTRAMOS los datos de TRAIN (Columna 'split' == 'train') y los de Validación ('dev'):
+
+    df_train = df[df['split']=='train']
+    train_ids = df_train['file_id'].tolist()
+    train_labels = df_train['target_stress'].tolist()
+
+    df_val = df[df['split']=='dev']
+    val_ids = df_val['file_id'].tolist()
+    val_labels = df_val['target_stress'].tolist()
+
+    # -----------------------------------------------------------------
+
+    # VIDEO:
+
+    if args.video == 'resnet':
+         VISUAL_INPUT_DIM = 2048
+    elif args.video == 'efficientnet':
+        VISUAL_INPUT_DIM = 1280
+    else: # vit
+        VISUAL_INPUT_DIM = 768
+
     # AUDIO:
     if args.audio == 'mfcc':
         AUDIO_INPUT_DIM = 15
@@ -91,111 +167,123 @@ def main():
     
     # VÍDEO:
     MAX_VIDEO_FRAMES = args.video_frames
-    
-    if args.video == 'resnet':
-        VISUAL_INPUT_DIM = 2048
-    elif args.video == 'efficientnet':
-        VISUAL_INPUT_DIM = 1280
-    else: # vit
-        VISUAL_INPUT_DIM = 768
 
 
     #------------------------------------------------------------------
-    # CONFIGURACIÓN DEL ENTORNO
+    # CREACIÓN MULTIMODAL DATASET Y DATALOADER
     # -----------------------------------------------------------------
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    # Hiperparámetros básicos:
-    BATCH_SIZE = args.batch_size 
-    LEARNING_RATE = args.lr
-    EPOCHS = args.epochs
-
-    #------------------------------------------------------------------
-    # LECTURA DE DATOS (en el servidor DGX)
-    # -----------------------------------------------------------------
-           
-    BASE_DIR = os.path.expanduser('/workspace')
-    csv_path = os.path.join(BASE_DIR, 'Multimodal_Stress_Dataset.csv')
-
-    df = pd.read_csv(csv_path)
-
-    # Si se ha seleccionado los datasets individuales, filtramos el dataset global por la columna 'dataset_origin':
-    if args.train_dataset != 'global':
-        df = df[df['dataset_origin'] == args.train_dataset]
-
-    # Creamos una columna temporal llamada 'file_id' en df con el nombre exacto de los archivos .npy (sin la extensión)
-    # FORMATO: "(dataset_origin)_(Utterance_ID)" reemplanzando cualquier barra por guión bajo
-    df['file_id'] = (df['dataset_origin'].astype(str) + "_" + df['Utterance_ID'].astype(str)).str.replace("/", "_")
-
-    # FILTRAMOS los datos de TRAIN (Columna 'split' == 'train') y los de Validación ('dev'):
-    df_train = df[df['split']=='train']
-    train_ids = df_train['file_id'].tolist()
-    train_labels = df_train['target_stress'].tolist()
-
-    df_val = df[df['split']=='dev']
-    val_ids = df_val['file_id'].tolist()
-    val_labels = df_val['target_stress'].tolist()
-    
-
-    print('DETECCIÓN DE ESTRÉS: ')
-    print(f"--> Fusión: {args.fusion.upper()}")
-    print(f"--> Vídeo: {args.video} ({MAX_VIDEO_FRAMES} frames) -> {VIDEO_RUTA}")
-    print(f"--> Audio: {args.audio} ({args.audio_len}s -> {MAX_AUDIO_LEN} pasos) -> {AUDIO_RUTA}")
-    print(f"--> Texto: {args.text} -> {TEXTO_RUTA}")
-
-    # -------------------- DATASET Y DATALOADER TRAIN ------------------
-
-    # Instanciamos el Dataset con nuestra clase creada: 
     train_dataset = MultimodalStressDataset(
-        subject_ids=train_ids,
-        labels= train_labels,
-        df=df_train,
-        video_model_name = args.video,
-        audio_model_name = args.audio,
-        text_model_name = args.text,
-        base_dir= BASE_DIR,  # La ruta hacia nuestro workspace en el servidor
-        video_folder= VIDEO_RUTA,
-        audio_folder= AUDIO_RUTA,
-        text_folder= TEXTO_RUTA,
-        max_audio_len=MAX_AUDIO_LEN,
-        max_video_frames = MAX_VIDEO_FRAMES
+        subject_ids=train_ids, labels=train_labels, df=df_train,
+        video_model_name=args.video if args.video else 'none',
+        audio_model_name=args.audio if args.audio else 'none',
+        text_model_name=args.text if args.text else 'none00', # indicamos none00 para que no falle el slicing 
+        base_dir=BASE_DIR, video_folder=VIDEO_RUTA, audio_folder=AUDIO_RUTA, text_folder=TEXTO_RUTA,
+        max_audio_len=MAX_AUDIO_LEN, max_video_frames=MAX_VIDEO_FRAMES,
+        modalidades=mods
     )
+
+    val_dataset = MultimodalStressDataset(
+        subject_ids=val_ids, labels=val_labels, df=df_val,
+        video_model_name=args.video if args.video else 'none',
+        audio_model_name=args.audio if args.audio else 'none',
+        text_model_name=args.text if args.text else 'none00',
+        base_dir=BASE_DIR, video_folder=VIDEO_RUTA, audio_folder=AUDIO_RUTA, text_folder=TEXTO_RUTA,
+        max_audio_len=MAX_AUDIO_LEN, max_video_frames=MAX_VIDEO_FRAMES,
+        modalidades=mods
+    )
+
 
     # DataLoader permite cargar los datos en lotes y barajarlos durante el entrenamiento:
     train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True) # shuffle = True para mezclar los datos en cada epoch y evitar que el modelo aprenda un orden específico, lo que mejora la generalización
-
-    # -------------------- DATASET Y DATALOADER VAL ----------------
-    val_dataset = MultimodalStressDataset(
-        subject_ids=val_ids,
-        labels= val_labels,
-        df=df_val,
-        video_model_name = args.video,
-        audio_model_name = args.audio,
-        text_model_name = args.text,
-        base_dir=BASE_DIR,  
-        video_folder=VIDEO_RUTA,
-        audio_folder=AUDIO_RUTA,
-        text_folder= TEXTO_RUTA,
-        max_audio_len = MAX_AUDIO_LEN,
-        max_video_frames = MAX_VIDEO_FRAMES
-    )
-
     val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False) # Aquí, shuffle = False porque no queremos mezclar los datos de validación, ya que esto no afecta al rendimiento del modelo
 
 
+    # ---------------------------------------------------------
+    # INSTANCIACIÓN DEL MODELO, MENSAJE AL USUARIO, 
+    # DEFINICIÓN DE NOMBRES DE ARCHIVOS Y MECANISMO EARLY STOPPING
+    # ---------------------------------------------------------
 
-    # ---------------------------------------------------------
-    # INSTANCIACIÓN DEL MODELO Y MECANISMO EARLY STOPPING
-    # ---------------------------------------------------------
-    if args.fusion == 'early':
-        model = EarlyFusion(visual_dim=VISUAL_INPUT_DIM, audio_dim=AUDIO_INPUT_DIM, text_dim=768, proj_dim=args.proj_dim, hidden_mlp=args.hidden_mlp, dropout_prob=args.dropout)
-    elif args.fusion == 'late':
-        model = LateFusion(visual_dim=VISUAL_INPUT_DIM, audio_dim=AUDIO_INPUT_DIM, text_dim=768, proj_dim=args.proj_dim, hidden_mlp=args.hidden_mlp, dropout_prob=args.dropout, fusion_mode = args.late_mode)
-    elif args.fusion == 'attention':
-        model = AttentionFusion(visual_dim=VISUAL_INPUT_DIM, audio_dim=AUDIO_INPUT_DIM, text_dim=768, proj_dim=args.proj_dim, hidden_mlp=args.hidden_mlp, dropout_prob=args.dropout)
-    else: 
-        raise ValueError("Estrategia no válida. Usa: early, late, attention")
+    # -------------------- UNIMODAL -------------------------
+    # Para los experimentos unimodales, almacenamos todo el historial en un único fichero .json para mayor comodidad: 
+    if len(mods) == 1 :
+        # Instanciamos el adaptador correcto de acuerdo a la modalidad:
+        if args.video is not None: 
+            print(f"ENTRENAMIENTO BASELINE:\nModalidad: VIDEO\nBackbone: {args.video.upper()}")
+            hidden_lstm = max(args.proj_dim, VISUAL_INPUT_DIM // 4)
+            model = UnimodalClassifier(VisualAdapter(input_dim=VISUAL_INPUT_DIM, projection_dim = args.proj_dim, hidden_lstm=hidden_lstm, dropout_prob=args.dropout), proj_dim=args.proj_dim, hidden_mlp=args.hidden_mlp, dropout_prob=args.dropout).to(device)
+            nombre_modelo = f"pesos_baseline_unimodal_video_{args.video}_ventana{MAX_VIDEO_FRAMES}_pdim{args.proj_dim}_hmlp{args.hidden_mlp}_do{args.dropout}_lr{LEARNING_RATE}.pth"
+        elif args.audio is not None: 
+            print(f"ENTRENAMIENTO BASELINE:\nModalidad: AUDIO\nBackbone: {args.audio.upper()}")
+            hidden_lstm = max(args.proj_dim, AUDIO_INPUT_DIM // 4)
+            model = UnimodalClassifier(AudioAdapter(input_dim=AUDIO_INPUT_DIM, projection_dim = args.proj_dim, hidden_lstm=hidden_lstm, dropout_prob=args.dropout), proj_dim=args.proj_dim, hidden_mlp=args.hidden_mlp, dropout_prob=args.dropout).to(device)
+            nombre_modelo = f"pesos_baseline_unimodal_audio_{args.audio}_ventana{args.audio_len}_pdim{args.proj_dim}_hmlp{args.hidden_mlp}_do{args.dropout}_lr{LEARNING_RATE}.pth"
+        elif args.text is not None: 
+            print(f"ENTRENAMIENTO BASELINE:\nModalidad: TEXTO\nBackbone: {args.text.upper()}")
+            model = UnimodalClassifier(TextAdapter(input_dim=768, projection_dim = args.proj_dim, dropout_prob=args.dropout), proj_dim=args.proj_dim, hidden_mlp=args.hidden_mlp, dropout_prob=args.dropout).to(device)
+            nombre_modelo = f"pesos_baseline_unimodal_texto_{args.text}_ventana{args.text[-2:]}_pdim{args.proj_dim}_hmlp{args.hidden_mlp}_do{args.dropout}_lr{LEARNING_RATE}.pth"
+        else: 
+            raise ValueError("Modalidad incorrecta. Usa: video, audio o texto")
+        
+    # -------------------- BIMODAL/TRIMODAL -------------------------
+
+    if len(mods) == 2 or len(mods) == 3:
+        # Mostramos por pantalla el tipo de entrenamiento iniciado por el usuario:
+        print('DETECCIÓN DE ESTRÉS: ')
+        print(f"--> Fusión: {args.fusion.upper()}")
+        if mods == ['video','audio']:
+            print(f"--> Vídeo: {args.video} ({MAX_VIDEO_FRAMES} frames) -> {VIDEO_RUTA}")
+            print(f"--> Audio: {args.audio} ({args.audio_len}s -> {MAX_AUDIO_LEN} pasos) -> {AUDIO_RUTA}") 
+            if args.fusion == 'late':
+                nombre_modelo = f"pesos_modelo_estres_{args.train_dataset}_{args.fusion}_{args.late_mode}_{args.video}{args.video_frames}_{args.audio}{args.audio_len}s_p{args.proj_dim}_h{args.hidden_mlp}_lr{args.lr}_do{args.dropout}.pth" 
+                nombre_historial = f"historial_estres_{args.train_dataset}_{args.fusion}_{args.late_mode}_{args.video}{args.video_frames}_{args.audio}{args.audio_len}s_p{args.proj_dim}_h{args.hidden_mlp}_lr{args.lr}_do{args.dropout}.json"
+            else:
+                nombre_modelo = f"pesos_modelo_estres_{args.train_dataset}_{args.fusion}_{args.video}{args.video_frames}_{args.audio}{args.audio_len}s_p{args.proj_dim}_h{args.hidden_mlp}_lr{args.lr}_do{args.dropout}.pth" 
+                nombre_historial = f"historial_estres_{args.train_dataset}_{args.fusion}_{args.video}{args.video_frames}_{args.audio}{args.audio_len}s_p{args.proj_dim}_h{args.hidden_mlp}_lr{args.lr}_do{args.dropout}.json"
+
+
+        elif mods == ['video','texto']:
+            print(f"--> Vídeo: {args.video} ({MAX_VIDEO_FRAMES} frames) -> {VIDEO_RUTA}") 
+            print(f"--> Texto: {args.text} -> {TEXTO_RUTA}")
+            if args.fusion == 'late':
+                nombre_modelo = f"pesos_modelo_estres_{args.train_dataset}_{args.fusion}_{args.late_mode}_{args.video}{args.video_frames}_{args.text}_p{args.proj_dim}_h{args.hidden_mlp}_lr{args.lr}_do{args.dropout}.pth" 
+                nombre_historial = f"historial_estres_{args.train_dataset}_{args.fusion}_{args.late_mode}_{args.video}{args.video_frames}_{args.text}_p{args.proj_dim}_h{args.hidden_mlp}_lr{args.lr}_do{args.dropout}.json"
+            else:
+                nombre_modelo = f"pesos_modelo_estres_{args.train_dataset}_{args.fusion}_{args.video}{args.video_frames}_{args.text}_p{args.proj_dim}_h{args.hidden_mlp}_lr{args.lr}_do{args.dropout}.pth" 
+                nombre_historial = f"historial_estres_{args.train_dataset}_{args.fusion}_{args.video}{args.video_frames}_{args.text}_p{args.proj_dim}_h{args.hidden_mlp}_lr{args.lr}_do{args.dropout}.json"
+
+
+        elif mods == ['audio','texto']:
+            print(f"--> Audio: {args.audio} ({args.audio_len}s -> {MAX_AUDIO_LEN} pasos) -> {AUDIO_RUTA}")
+            print(f"--> Texto: {args.text} -> {TEXTO_RUTA}")
+            if args.fusion == 'late':
+                nombre_modelo = f"pesos_modelo_estres_{args.train_dataset}_{args.fusion}_{args.late_mode}_{args.audio}{args.audio_len}s_{args.text}_p{args.proj_dim}_h{args.hidden_mlp}_lr{args.lr}_do{args.dropout}.pth" 
+                nombre_historial = f"historial_estres_{args.train_dataset}_{args.fusion}_{args.late_mode}_{args.audio}{args.audio_len}s_{args.text}_p{args.proj_dim}_h{args.hidden_mlp}_lr{args.lr}_do{args.dropout}.json"
+            else:
+                nombre_modelo = f"pesos_modelo_estres_{args.train_dataset}_{args.fusion}_{args.audio}{args.audio_len}s_{args.text}_p{args.proj_dim}_h{args.hidden_mlp}_lr{args.lr}_do{args.dropout}.pth" 
+                nombre_historial = f"historial_estres_{args.train_dataset}_{args.fusion}_{args.audio}{args.audio_len}s_{args.text}_p{args.proj_dim}_h{args.hidden_mlp}_lr{args.lr}_do{args.dropout}.json"
+
+
+        else :
+            nombre_dataset_archivo = args.transfer_learning if args.transfer_learning is not None else args.train_dataset
+            print(f"--> Vídeo: {args.video} ({MAX_VIDEO_FRAMES} frames) -> {VIDEO_RUTA}")
+            print(f"--> Audio: {args.audio} ({args.audio_len}s -> {MAX_AUDIO_LEN} pasos) -> {AUDIO_RUTA}")
+            print(f"--> Texto: {args.text} -> {TEXTO_RUTA}")
+            if args.fusion == 'late':
+                nombre_modelo = f"pesos_modelo_estres_{nombre_dataset_archivo}_{args.fusion}_{args.late_mode}_{args.video}{args.video_frames}_{args.audio}{args.audio_len}s_{args.text}_p{args.proj_dim}_h{args.hidden_mlp}_lr{args.lr}_do{args.dropout}.pth" 
+                nombre_historial = f"historial_estres_{nombre_dataset_archivo}_{args.fusion}_{args.late_mode}_{args.video}{args.video_frames}_{args.audio}{args.audio_len}s_{args.text}_p{args.proj_dim}_h{args.hidden_mlp}_lr{args.lr}_do{args.dropout}.json"
+            else:
+                nombre_modelo = f"pesos_modelo_estres_{nombre_dataset_archivo}_{args.fusion}_{args.video}{args.video_frames}_{args.audio}{args.audio_len}s_{args.text}_p{args.proj_dim}_h{args.hidden_mlp}_lr{args.lr}_do{args.dropout}.pth" 
+                nombre_historial = f"historial_estres_{nombre_dataset_archivo}_{args.fusion}_{args.video}{args.video_frames}_{args.audio}{args.audio_len}s_{args.text}_p{args.proj_dim}_h{args.hidden_mlp}_lr{args.lr}_do{args.dropout}.json"
+
+        if args.fusion == 'early':
+            model = EarlyFusion(visual_dim=VISUAL_INPUT_DIM, audio_dim=AUDIO_INPUT_DIM, text_dim=768, proj_dim=args.proj_dim, hidden_mlp=args.hidden_mlp, dropout_prob=args.dropout, modalidades=mods)
+        elif args.fusion == 'late':
+            model = LateFusion(visual_dim=VISUAL_INPUT_DIM, audio_dim=AUDIO_INPUT_DIM, text_dim=768, proj_dim=args.proj_dim, hidden_mlp=args.hidden_mlp, dropout_prob=args.dropout, fusion_mode = args.late_mode, modalidades = mods)
+        elif args.fusion == 'attention':
+            model = AttentionFusion(visual_dim=VISUAL_INPUT_DIM, audio_dim=AUDIO_INPUT_DIM, text_dim=768, proj_dim=args.proj_dim, hidden_mlp=args.hidden_mlp, dropout_prob=args.dropout, modalidades=mods)
+        else: 
+            raise ValueError("Estrategia no válida. Usa: early, late, attention")
     
     model = model.to(device)
 
@@ -223,18 +311,12 @@ def main():
     optimizer = optim.AdamW(model.parameters(),  
                             lr=LEARNING_RATE, 
                             weight_decay=args.weight_decay) 
+
     
     # CONFIGURACIÓN EARLY STOPPING:
     best_val_f1 = 0.0
     paciencia_limite = args.patience
     contador_paciencia = 0
-
-    if args.fusion == 'late':
-        nombre_modelo = f"pesos_modelo_estres_{args.train_dataset}_{args.fusion}_{args.late_mode}_{args.video}{args.video_frames}_{args.audio}{args.audio_len}s_{args.text}_p{args.proj_dim}_h{args.hidden_mlp}_lr{args.lr}_do{args.dropout}.pth" 
-        nombre_historial = f"historial_estres_{args.train_dataset}_{args.fusion}_{args.late_mode}_{args.video}{args.video_frames}_{args.audio}{args.audio_len}s_{args.text}_p{args.proj_dim}_h{args.hidden_mlp}_lr{args.lr}_do{args.dropout}.json"
-    else:
-        nombre_modelo = f"pesos_modelo_estres_{args.train_dataset}_{args.fusion}_{args.video}{args.video_frames}_{args.audio}{args.audio_len}s_{args.text}_p{args.proj_dim}_h{args.hidden_mlp}_lr{args.lr}_do{args.dropout}.pth" 
-        nombre_historial = f"historial_estres_{args.train_dataset}_{args.fusion}_{args.video}{args.video_frames}_{args.audio}{args.audio_len}s_{args.text}_p{args.proj_dim}_h{args.hidden_mlp}_lr{args.lr}_do{args.dropout}.json"
 
     # DICCIONARIO para guardar el historial de métricas:
     history = {
@@ -257,17 +339,20 @@ def main():
         #==============================
     
         progress_bar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{EPOCHS}")
-        for video_x, audio_x, text_x, labels in progress_bar:
-            # Enviamos los datos del lote a la GPU:
-            video_x = video_x.to(device)
-            audio_x = audio_x.to(device)
-            text_x = text_x.to(device)
-            labels = labels.to(device)
+        for batch in progress_bar :
+            labels = batch['label'].to(device) # Ya tiene la forma [Batch, 1]
+            video_x = batch['video'].to(device) if 'video' in batch else None
+            audio_x = batch['audio'].to(device) if 'audio' in batch else None
+            text_x = batch['texto'].to(device) if 'texto' in batch else None
 
             # Reseteamos los gradientes (obligatorio en PyTorch en cada iteración)
             optimizer.zero_grad()
             # Pasamos los datos por el modelo -- Forward Propagation 
-            predictions = model(video_x, audio_x, text_x)
+            if len(mods) == 1:
+                unico_input = video_x if video_x is not None else (audio_x if audio_x is not None else text_x)
+                predictions = model(unico_input)
+            else :
+                predictions = model(video_x=video_x, audio_x=audio_x, text_x=text_x)
             # Cálculo del Error (Loss)
             loss = criterion(predictions, labels)
             # Backward Propagation - Calculamos los gradientes de la función de pérdida con respecto a los pesos del modelo
@@ -291,13 +376,18 @@ def main():
         epoch_preds = []
 
         with torch.no_grad(): # No calculamos gradientes durante la validación para ahorrar memoria y acelerar el proceso
-            for video_x, audio_x, text_x, labels in val_loader:
-                video_x = video_x.to(device)
-                audio_x = audio_x.to(device)
-                text_x = text_x.to(device)
-                labels = labels.to(device)
+            for batch in val_loader :
+                labels = batch['label'].to(device)
+                video_x = batch['video'].to(device) if 'video' in batch else None
+                audio_x = batch['audio'].to(device) if 'audio' in batch else None
+                text_x = batch['texto'].to(device) if 'texto' in batch else None
 
-                predictions = model(video_x, audio_x, text_x)
+                if len(mods) == 1:
+                    unico_input = video_x if video_x is not None else (audio_x if audio_x is not None else text_x)
+                    predictions = model(unico_input)
+
+                else :
+                    predictions = model(video_x=video_x, audio_x=audio_x, text_x=text_x)
                 # Calculamos el error de validación:
                 loss = criterion(predictions, labels)
                 val_loss += loss.item()
@@ -334,6 +424,7 @@ def main():
         # ---------------------------------------------
         if val_f1 > best_val_f1:
             best_val_f1 = val_f1
+            best_val_recall = val_recall_estres
             # =========================================================
             # GUARDADO DEL MODELO 
             # =========================================================
@@ -350,10 +441,17 @@ def main():
                 break # Rompemos el bucle
 
     print(f"ENTRENAMIENTO FINALIZADO. Pesos del modelo guardados localmente en: ./{nombre_modelo}")
-    
-    with open(nombre_historial, 'w') as f:
-        json.dump(history, f)
-    print(f"Historial de entrenamiento guardado en: ./{nombre_historial}")
+
+    if len(mods) == 1 : 
+        nombre_historial_individual = f"historial_{nombre_modelo.replace('.pth', '.json')}"
+        with open(nombre_historial_individual, 'w') as f:
+            json.dump(history, f)
+        print(f"Historial de entrenamiento guardado en: ./{nombre_historial_individual}")
+
+    else : 
+        with open(nombre_historial, 'w') as f:
+            json.dump(history, f)
+        print(f"Historial de entrenamiento guardado en: ./{nombre_historial}")
 
 if __name__ == "__main__":
     main()

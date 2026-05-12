@@ -12,6 +12,7 @@ pesos/
 # Se ignoran también pruebas:
 resultados/prueba_ELIMINAR/
 ELIMINAR_*.ipynb
+ELIMINAR_*.py
 
 #--- EMBEDDINGS Y MODELOS (>10GB que están en Drive) ---
 *.npy
