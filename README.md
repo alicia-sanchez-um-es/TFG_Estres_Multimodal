@@ -35,7 +35,7 @@ El proyecto utiliza Python. Las principales librerías son:
 
 ## Cómo empezar
 1. Clonar este repositorio.
-2. Descargar los datasets originales MELD e IEMOCAP y colocarlos en la carpeta `data/RAW/`.
+2. Descargar los datasets originales MELD, IEMOCAP y MSP-IMPROV y colocarlos en la carpeta `data/RAW/`.
 3. Ejecutar los notebooks en orden numérico para replicar el preprocesamiento y EDA.
 4. Utilizar los scripts de `src/` para ejecutar los entrenamientos de los modelos de fusión.
 
