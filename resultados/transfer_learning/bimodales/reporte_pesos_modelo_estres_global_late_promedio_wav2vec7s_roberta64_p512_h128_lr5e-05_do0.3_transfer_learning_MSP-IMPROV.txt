@@ -1,0 +1,13 @@
+MODELO: pesos/bimodales_ajuste/pesos_modelo_estres_global_late_promedio_wav2vec7s_roberta64_p512_h128_lr5e-05_do0.3.pth
+Parámetros: 3417090
+Inferencia media: 3.95 ms
+ROC-AUC: 0.5511
+Balanced Accuracy: 0.4933
+              precision    recall  f1-score   support
+
+   No Estrés     0.7645    0.7415    0.7528       499
+      Estrés     0.2229    0.2450    0.2334       151
+
+    accuracy                         0.6262       650
+   macro avg     0.4937    0.4933    0.4931       650
+weighted avg     0.6387    0.6262    0.6321       650

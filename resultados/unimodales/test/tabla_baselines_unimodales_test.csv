@@ -1,0 +1,4 @@
+Modalidad,Modelo,Ventana,F1_Macro,Balanced_Accuracy,AUC,Recall_Estres
+Texto,RoBERTa,64 tokens,0.7137,0.7279,0.8078,0.6182
+Vídeo,ResNet,32 frames,0.5847,0.6138,0.6553,0.5366
+Audio,Wav2Vec 2.0,7 seg,0.533,0.5391,0.5797,0.1433

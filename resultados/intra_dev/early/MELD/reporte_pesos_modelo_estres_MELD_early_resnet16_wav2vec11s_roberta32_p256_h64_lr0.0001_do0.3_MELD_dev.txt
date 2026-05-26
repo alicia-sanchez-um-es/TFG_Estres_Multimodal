@@ -1,0 +1,13 @@
+MODELO: pesos/intra_ajuste/early/MELD/pesos_modelo_estres_MELD_early_resnet16_wav2vec11s_roberta32_p256_h64_lr0.0001_do0.3.pth
+Parámetros: 6908673
+Inferencia media: 4.68 ms
+ROC-AUC: 0.7590
+Balanced Accuracy: 0.6905
+              precision    recall  f1-score   support
+
+   No Estrés     0.8955    0.8525    0.8735       915
+      Estrés     0.4304    0.5285    0.4744       193
+
+    accuracy                         0.7960      1108
+   macro avg     0.6630    0.6905    0.6739      1108
+weighted avg     0.8145    0.7960    0.8040      1108

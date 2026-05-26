@@ -1,0 +1,13 @@
+MODELO: pesos/bimodales_ajuste/pesos_modelo_estres_global_late_logistica_resnet16_wav2vec7s_p256_h64_lr1e-05_do0.3.pth
+Parámetros: 6530565
+Inferencia media: 3.22 ms
+ROC-AUC: 0.6525
+Balanced Accuracy: 0.6242
+              precision    recall  f1-score   support
+
+   No Estrés     0.8385    0.7422    0.7874      3301
+      Estrés     0.3625    0.5063    0.4225       956
+
+    accuracy                         0.6892      4257
+   macro avg     0.6005    0.6242    0.6050      4257
+weighted avg     0.7316    0.6892    0.7055      4257

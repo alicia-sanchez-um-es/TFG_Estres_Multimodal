@@ -1,0 +1,6 @@
+Técnica de Fusión,Vent. Vídeo (frames),Vent. Audio (segundos),Vent. Texto (tokens),Proj_Dim,Hidden_MLP,LR,Dropout,F1-Score Macro,Balanced Accuracy,ROC-AUC,Recall (Estrés)
+Fusión Tardía (Regresión Logística),32,7,32,512,128,0.0001,0.5,0.6828,0.7138,0.7854,0.5959
+Fusión mediante Atención,16,7,64,512,128,5e-05,0.3,0.6791,0.7315,0.7776,0.6684
+Fusión Temprana,16,11,32,256,64,0.0001,0.3,0.6739,0.6905,0.759,0.5285
+Fusión Tardía (Promedio),16,7,64,256,64,0.0001,0.3,0.6636,0.68,0.7654,0.513
+Fusión Tardía (Voto),16,11,64,512,128,1e-05,0.3,0.6051,0.6865,0.7554,0.6943

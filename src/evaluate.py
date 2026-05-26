@@ -328,7 +328,7 @@ def main():
     cm = confusion_matrix(all_labels, all_preds)
     plt.figure(figsize=(8, 6))
     sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=['No Estrés', 'Estrés'], yticklabels=['No Estrés', 'Estrés'])
-    plt.title(f'Matriz de Confusión - {args.fusion.upper()}')
+    plt.title(f'Matriz de Confusión')
     plt.xlabel('Predicción')
     plt.ylabel('Real')
     plt.savefig(nombre_mc)
@@ -426,7 +426,6 @@ def main():
 
             plt.figure(figsize=(10, 6))
             ax = sns.barplot(x='Métrica', y='Valor', hue='Género', data=plot_data, palette={'Femenino': "#0dcd26", 'Masculino': '#1f77b4'})
-            plt.title(f'Sesgo por Género - {args.fusion.upper()} ({args.eval_dataset.upper()})', fontsize=14, pad=15)
             plt.ylim(0, 1.05)
             plt.ylabel('Puntuación')
             plt.grid(axis='y', linestyle='--', alpha=0.7)

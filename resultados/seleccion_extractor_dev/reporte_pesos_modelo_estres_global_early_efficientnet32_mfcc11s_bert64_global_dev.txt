@@ -1,0 +1,13 @@
+MODELO: pesos/seleccion_extractor/pesos_modelo_estres_global_early_efficientnet32_mfcc11s_bert64.pth
+Parámetros: 6535681
+Inferencia media: 4.78 ms
+ROC-AUC: 0.7943
+Balanced Accuracy: 0.7184
+              precision    recall  f1-score   support
+
+   No Estrés     0.8591    0.7928    0.8246      1815
+      Estrés     0.5318    0.6440    0.5825       663
+
+    accuracy                         0.7530      2478
+   macro avg     0.6954    0.7184    0.7036      2478
+weighted avg     0.7715    0.7530    0.7599      2478

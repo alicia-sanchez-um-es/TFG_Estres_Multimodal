@@ -1,0 +1,13 @@
+MODELO: pesos/inter_multimodal_ajuste/late/logistica/global/pesos_modelo_estres_global_late_logistica_resnet16_wav2vec7s_roberta64_p512_h128_lr5e-05_do0.3.pth
+Parámetros: 8994823
+Inferencia media: 3.46 ms
+ROC-AUC: 0.8042
+Balanced Accuracy: 0.7261
+              precision    recall  f1-score   support
+
+   No Estrés     0.8573    0.8309    0.8439      1815
+      Estrés     0.5730    0.6214    0.5962       663
+
+    accuracy                         0.7748      2478
+   macro avg     0.7152    0.7261    0.7201      2478
+weighted avg     0.7812    0.7748    0.7776      2478

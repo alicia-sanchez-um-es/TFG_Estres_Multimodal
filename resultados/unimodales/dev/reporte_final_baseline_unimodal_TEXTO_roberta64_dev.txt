@@ -1,0 +1,13 @@
+MODELO: pesos/unimodales_sin_ajustar/pesos_baseline_unimodal_texto_roberta64_ventana64_pdim512_hmlp128_do0.5_lr0.0001.pth
+Parámetros: 460801
+Inferencia media: 0.20 ms
+ROC-AUC: 0.8212
+Balanced Accuracy: 0.7272
+              precision    recall  f1-score   support
+
+   No Estrés     0.8511    0.8722    0.8615      1815
+      Estrés     0.6246    0.5822    0.6027       663
+
+    accuracy                         0.7946      2478
+   macro avg     0.7378    0.7272    0.7321      2478
+weighted avg     0.7905    0.7946    0.7922      2478

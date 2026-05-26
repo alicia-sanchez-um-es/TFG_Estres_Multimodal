@@ -1,0 +1,13 @@
+MODELO: pesos/bimodales_ajuste/pesos_modelo_estres_global_late_logistica_resnet32_roberta64_p512_h128_lr0.0001_do0.5.pth
+Parámetros: 6038533
+Inferencia media: 0.88 ms
+ROC-AUC: 0.5696
+Balanced Accuracy: 0.5022
+              precision    recall  f1-score   support
+
+   No Estrés     0.7685    0.9780    0.8607       499
+      Estrés     0.2667    0.0265    0.0482       151
+
+    accuracy                         0.7569       650
+   macro avg     0.5176    0.5022    0.4544       650
+weighted avg     0.6519    0.7569    0.6719       650

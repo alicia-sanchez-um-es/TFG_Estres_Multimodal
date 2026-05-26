@@ -1,0 +1,13 @@
+MODELO: pesos/intra_ajuste/attention/IEMOCAP/pesos_modelo_estres_IEMOCAP_attention_resnet32_wav2vec11s_roberta32_p512_h128_lr5e-05_do0.3.pth
+Parámetros: 8928514
+Inferencia media: 4.78 ms
+ROC-AUC: 0.7841
+Balanced Accuracy: 0.7288
+              precision    recall  f1-score   support
+
+   No Estrés     0.8162    0.8044    0.8103       900
+      Estrés     0.6356    0.6532    0.6443       470
+
+    accuracy                         0.7526      1370
+   macro avg     0.7259    0.7288    0.7273      1370
+weighted avg     0.7543    0.7526    0.7533      1370

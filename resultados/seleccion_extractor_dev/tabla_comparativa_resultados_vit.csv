@@ -1,0 +1,8 @@
+Modelo,Modalidad,F1_Macro,Balanced_Accuracy,AUC,Recall_Estres
+ViT + Wav2Vec + BERT,Multimodal,0.6427,0.6882,0.7667,0.724
+ViT + MFCCs (+ RMS + ZCR) + RoBERTa,Multimodal,0.628,0.6793,0.7498,0.736
+ViT + MFCCs (+ RMS + ZCR) + BERT,Multimodal,0.6273,0.7057,0.8016,0.8462
+ViT + Wav2Vec + RoBERTa,Multimodal,0.6149,0.6693,0.7309,0.7376
+ViT + MFCCs (+ RMS + ZCR) + DeBERTa,Multimodal,0.5851,0.6429,0.6953,0.7255
+ViT + Wav2Vec + DeBERTa,Multimodal,0.5552,0.6269,0.6931,0.7557
+Modelo con ViT,Unimodal,0.5402,0.606,0.613,0.7195

@@ -1,0 +1,13 @@
+MODELO: pesos/transfer_learning/pesos_modelo_estres_IEMOCAP_MSP-IMPROV_attention_resnet32_wav2vec7s_roberta32_p512_h128_lr5e-05_do0.3.pth
+Parámetros: 8928514
+Inferencia media: 3.42 ms
+ROC-AUC: 0.6104
+Balanced Accuracy: 0.5548
+              precision    recall  f1-score   support
+
+   No Estrés     0.8712    0.9422    0.9053     11739
+      Estrés     0.3267    0.1674    0.2214      1965
+
+    accuracy                         0.8311     13704
+   macro avg     0.5989    0.5548    0.5634     13704
+weighted avg     0.7931    0.8311    0.8072     13704

@@ -1,0 +1,13 @@
+MODELO: pesos/intra_ajuste/late/logistica/IEMOCAP/pesos_modelo_estres_IEMOCAP_late_logistica_resnet32_wav2vec7s_roberta64_p256_h64_lr1e-05_do0.3.pth
+Parámetros: 6744583
+Inferencia media: 3.55 ms
+ROC-AUC: 0.8049
+Balanced Accuracy: 0.7395
+              precision    recall  f1-score   support
+
+   No Estrés     0.8568    0.7044    0.7732       900
+      Estrés     0.5778    0.7745    0.6618       470
+
+    accuracy                         0.7285      1370
+   macro avg     0.7173    0.7395    0.7175      1370
+weighted avg     0.7610    0.7285    0.7350      1370

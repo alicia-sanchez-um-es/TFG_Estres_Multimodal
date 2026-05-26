@@ -1,0 +1,4 @@
+Baseline Bimodal,Fusión,V_frames,A_seg,T_tokens,Proj_Dim,Hidden_MLP,LR,Dropout,F1-Score Macro,Balanced Accuracy,ROC-AUC,Recall (Estrés)
+Audio y Texto,Fusión Tardía (Promedio),N/A,7,64,512,128,5e-05,0.3,0.7194,0.7147,0.8126,0.5439
+Vídeo y Texto,Fusión Tardía (Regresión Logística),32,N/A,64,512,128,0.0001,0.5,0.7039,0.7043,0.7822,0.5429
+Vídeo y Audio,Fusión Tardía (Regresión Logística),16,7,N/A,256,64,1e-05,0.3,0.605,0.6242,0.6525,0.5063

@@ -1,0 +1,13 @@
+MODELO: pesos/intra_ajuste/late/logistica/MELD/pesos_modelo_estres_MELD_late_logistica_resnet32_wav2vec7s_roberta32_p512_h128_lr0.0001_do0.5.pth
+Parámetros: 8994823
+Inferencia media: 3.30 ms
+ROC-AUC: 0.5234
+Balanced Accuracy: 0.5036
+              precision    recall  f1-score   support
+
+   No Estrés     0.8495    0.9946    0.9163      2213
+      Estrés     0.2941    0.0127    0.0243       395
+
+    accuracy                         0.8459      2608
+   macro avg     0.5718    0.5036    0.4703      2608
+weighted avg     0.7654    0.8459    0.7812      2608

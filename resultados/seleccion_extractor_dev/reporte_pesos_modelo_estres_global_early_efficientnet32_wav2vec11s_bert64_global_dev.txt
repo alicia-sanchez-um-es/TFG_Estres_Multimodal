@@ -1,0 +1,13 @@
+MODELO: pesos/seleccion_extractor/pesos_modelo_estres_global_early_efficientnet32_wav2vec11s_bert64.pth
+Parámetros: 8077825
+Inferencia media: 4.73 ms
+ROC-AUC: 0.8065
+Balanced Accuracy: 0.7273
+              precision    recall  f1-score   support
+
+   No Estrés     0.8813    0.7201    0.7926      1815
+      Estrés     0.4894    0.7345    0.5875       663
+
+    accuracy                         0.7240      2478
+   macro avg     0.6854    0.7273    0.6900      2478
+weighted avg     0.7765    0.7240    0.7377      2478

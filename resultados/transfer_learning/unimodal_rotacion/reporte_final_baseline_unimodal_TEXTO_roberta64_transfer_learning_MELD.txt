@@ -1,0 +1,13 @@
+MODELO: pesos/transfer_learning_unimodal/pesos_baseline_unimodal_texto_roberta64_ventana64_pdim512_hmlp128_do0.3_lr5e-05_IEMOCAP_MSP-IMPROV.pth
+Parámetros: 460801
+Inferencia media: 0.17 ms
+ROC-AUC: 0.6356
+Balanced Accuracy: 0.5910
+              precision    recall  f1-score   support
+
+   No Estrés     0.8840    0.8415    0.8622     11739
+      Estrés     0.2644    0.3405    0.2977      1965
+
+    accuracy                         0.7696     13704
+   macro avg     0.5742    0.5910    0.5799     13704
+weighted avg     0.7952    0.7696    0.7813     13704

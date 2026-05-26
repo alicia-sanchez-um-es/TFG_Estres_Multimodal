@@ -1,0 +1,19 @@
+Arquitectura Multimodal,Ventana,F1_Macro,Balanced_Accuracy,AUC,Recall_Estres
+ResNet + Wav2Vec + RoBERTa,32f / 11s / 64t,0.7149,0.7424,0.8113,0.7179
+ResNet + MFCCs + BERT,32f / 11s / 64t,0.7087,0.7163,0.7956,0.6139
+EfficientNet + MFCCs + BERT,32f / 11s / 64t,0.7036,0.7184,0.7943,0.644
+EfficientNet + Wav2Vec + BERT,32f / 11s / 64t,0.69,0.7273,0.8065,0.7345
+ResNet + Wav2Vec + BERT,32f / 11s / 64t,0.6888,0.7188,0.7922,0.6998
+EfficientNet + Wav2Vec + RoBERTa,32f / 11s / 64t,0.6879,0.6871,0.7695,0.5385
+EfficientNet + MFCCs + RoBERTa,32f / 11s / 64t,0.6738,0.6805,0.7492,0.5626
+ResNet + MFCCs + RoBERTa,32f / 11s / 64t,0.6691,0.715,0.7935,0.7511
+ResNet + Wav2Vec + DeBERTa,32f / 11s / 64t,0.6525,0.6848,0.7456,0.6727
+ViT + Wav2Vec + BERT,32f / 11s / 64t,0.6427,0.6882,0.7667,0.724
+ResNet + MFCCs + DeBERTa,32f / 11s / 64t,0.6328,0.6609,0.7298,0.632
+EfficientNet + Wav2Vec + DeBERTa,32f / 11s / 64t,0.6318,0.6347,0.7035,0.4827
+ViT + MFCCs + RoBERTa,32f / 11s / 64t,0.628,0.6793,0.7498,0.736
+ViT + MFCCs + BERT,32f / 11s / 64t,0.6273,0.7057,0.8016,0.8462
+ViT + Wav2Vec + RoBERTa,32f / 11s / 64t,0.6149,0.6693,0.7309,0.7376
+EfficientNet + MFCCs + DeBERTa,32f / 11s / 64t,0.6107,0.6178,0.6788,0.4857
+ViT + MFCCs + DeBERTa,32f / 11s / 64t,0.5851,0.6429,0.6953,0.7255
+ViT + Wav2Vec + DeBERTa,32f / 11s / 64t,0.5552,0.6269,0.6931,0.7557

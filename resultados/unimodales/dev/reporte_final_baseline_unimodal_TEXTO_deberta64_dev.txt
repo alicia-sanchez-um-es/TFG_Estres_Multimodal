@@ -1,0 +1,13 @@
+MODELO: pesos/unimodales_sin_ajustar/pesos_baseline_unimodal_texto_deberta64_ventana64_pdim512_hmlp128_do0.5_lr0.0001.pth
+Parámetros: 460801
+Inferencia media: 0.20 ms
+ROC-AUC: 0.7703
+Balanced Accuracy: 0.6988
+              precision    recall  f1-score   support
+
+   No Estrés     0.8563    0.7355    0.7913      1815
+      Estrés     0.4777    0.6621    0.5550       663
+
+    accuracy                         0.7159      2478
+   macro avg     0.6670    0.6988    0.6732      2478
+weighted avg     0.7550    0.7159    0.7281      2478

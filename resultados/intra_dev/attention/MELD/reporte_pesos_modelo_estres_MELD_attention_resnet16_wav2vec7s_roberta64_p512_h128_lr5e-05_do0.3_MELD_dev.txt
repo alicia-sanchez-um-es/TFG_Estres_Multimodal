@@ -1,0 +1,13 @@
+MODELO: pesos/intra_ajuste/attention/MELD/pesos_modelo_estres_MELD_attention_resnet16_wav2vec7s_roberta64_p512_h128_lr5e-05_do0.3.pth
+Parámetros: 8928514
+Inferencia media: 3.49 ms
+ROC-AUC: 0.7776
+Balanced Accuracy: 0.7315
+              precision    recall  f1-score   support
+
+   No Estrés     0.9191    0.7945    0.8523       915
+      Estrés     0.4069    0.6684    0.5059       193
+
+    accuracy                         0.7726      1108
+   macro avg     0.6630    0.7315    0.6791      1108
+weighted avg     0.8299    0.7726    0.7919      1108

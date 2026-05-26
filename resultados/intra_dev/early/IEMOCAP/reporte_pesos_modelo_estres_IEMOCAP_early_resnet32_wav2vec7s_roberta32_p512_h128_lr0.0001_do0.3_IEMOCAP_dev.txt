@@ -1,0 +1,13 @@
+MODELO: pesos/intra_ajuste/early/IEMOCAP/pesos_modelo_estres_IEMOCAP_early_resnet32_wav2vec7s_roberta32_p512_h128_lr0.0001_do0.3.pth
+Parámetros: 9650689
+Inferencia media: 3.46 ms
+ROC-AUC: 0.7967
+Balanced Accuracy: 0.7243
+              precision    recall  f1-score   support
+
+   No Estrés     0.8034    0.8444    0.8234       900
+      Estrés     0.6698    0.6043    0.6353       470
+
+    accuracy                         0.7620      1370
+   macro avg     0.7366    0.7243    0.7294      1370
+weighted avg     0.7576    0.7620    0.7589      1370

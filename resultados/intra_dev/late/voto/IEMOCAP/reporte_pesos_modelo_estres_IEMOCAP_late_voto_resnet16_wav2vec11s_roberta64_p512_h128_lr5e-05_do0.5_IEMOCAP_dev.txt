@@ -1,0 +1,13 @@
+MODELO: pesos/intra_ajuste/late/voto/IEMOCAP/pesos_modelo_estres_IEMOCAP_late_voto_resnet16_wav2vec11s_roberta64_p512_h128_lr5e-05_do0.5.pth
+Parámetros: 8994819
+Inferencia media: 4.80 ms
+ROC-AUC: 0.7727
+Balanced Accuracy: 0.6981
+              precision    recall  f1-score   support
+
+   No Estrés     0.7844    0.8367    0.8097       900
+      Estrés     0.6415    0.5596    0.5977       470
+
+    accuracy                         0.7416      1370
+   macro avg     0.7129    0.6981    0.7037      1370
+weighted avg     0.7353    0.7416    0.7370      1370

@@ -1,0 +1,16 @@
+Baseline Bimodal,Fusión,V_frames,A_seg,T_tokens,Proj_Dim,Hidden_MLP,LR,Dropout,F1-Score Macro
+Vídeo y Audio,Fusión Temprana,16,11,N/A,512,128,1e-05,0.5,0.5811634513587884
+Vídeo y Audio,Fusión Tardía (Voto Mayoritario),16,7,N/A,512,128,1e-05,0.5,0.579759599018882
+Vídeo y Audio,Fusión Tardía (Promedio),32,7,N/A,512,128,1e-05,0.5,0.5782003899630559
+Vídeo y Audio,Fusión Tardía (Regresión Logística),16,7,N/A,256,64,1e-05,0.3,0.5850630376912267
+Vídeo y Audio,Fusión mediante Atención,16,7,N/A,512,128,5e-05,0.3,0.5847473848723305
+Vídeo y Texto,Fusión Temprana,32,N/A,64,512,128,0.0001,0.3,0.718404729920395
+Vídeo y Texto,Fusión Tardía (Voto Mayoritario),32,N/A,64,512,128,0.0001,0.5,0.7031146194378217
+Vídeo y Texto,Fusión Tardía (Promedio),32,N/A,64,512,128,0.0001,0.3,0.7092984442122373
+Vídeo y Texto,Fusión Tardía (Regresión Logística),32,N/A,64,512,128,0.0001,0.5,0.7214561953675926
+Vídeo y Texto,Fusión mediante Atención,32,N/A,32,256,64,0.0001,0.3,0.7190605160308179
+Audio y Texto,Fusión Temprana,N/A,7,32,512,128,0.0001,0.3,0.7153207524048771
+Audio y Texto,Fusión Tardía (Voto Mayoritario),N/A,11,64,512,128,0.0001,0.3,0.7340732134413929
+Audio y Texto,Fusión Tardía (Promedio),N/A,7,64,512,128,5e-05,0.3,0.7542199978559194
+Audio y Texto,Fusión Tardía (Regresión Logística),N/A,7,64,512,128,0.0001,0.3,0.7524708846850664
+Audio y Texto,Fusión mediante Atención,N/A,7,32,512,128,5e-05,0.3,0.7363605848096944

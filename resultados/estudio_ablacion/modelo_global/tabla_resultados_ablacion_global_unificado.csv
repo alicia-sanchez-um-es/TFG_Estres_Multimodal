@@ -1,0 +1,8 @@
+Escenario,F1-Macro,Balanced Accuracy,Recall Estrés,ROC-AUC
+Completo,0.6891,0.7173,0.6454,0.7837
+Sin Audio,0.6855,0.7155,0.6485,0.7811
+Sin Vídeo,0.5941,0.6906,0.819,0.7783
+Solo Texto,0.5913,0.6903,0.8253,0.7774
+Sin Texto,0.4368,0.5,0.0,0.4824
+Solo Audio,0.4368,0.5,0.0,0.4623
+Solo Vídeo,0.4368,0.5,0.0,0.4985

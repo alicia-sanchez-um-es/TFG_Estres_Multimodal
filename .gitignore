@@ -1,8 +1,6 @@
 # --- DATOS  ---
-# Se ignoran los vídeos y audios crudos y procesados
-data/RAW/
-data/PROCESSED/IEMOCAP_CLIPS/
-data/PROCESSED/MELD_AUDIO/
+# Se ignoran TODOS LOS DATOS, tanto preprocesados como originales
+data/
 *.mp4
 *.wav
 *.zip
@@ -32,9 +30,10 @@ __pycache__/
 */.ipynb_checkpoints/*
 
 # --- SISTEMA OPERATIVO ---
-# Se ignora archivos de Windows
-.DS_Store
-Thumbs.db
+# Se ignora archivos de sistema operativo
+.DS_Store # macOS
+Thumbs.db # Windows
+desktop.ini  # Windows
 
 # --- CONFIGURACIÓN Y SECRETOS ---
 .env

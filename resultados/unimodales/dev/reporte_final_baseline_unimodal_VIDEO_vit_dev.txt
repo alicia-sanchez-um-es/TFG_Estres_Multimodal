@@ -1,0 +1,13 @@
+MODELO: pesos/unimodales_sin_ajustar/pesos_baseline_unimodal_video_vit_ventana32_pdim512_hmlp128_do0.5_lr0.0001.pth
+Parámetros: 2956289
+Inferencia media: 0.54 ms
+ROC-AUC: 0.6130
+Balanced Accuracy: 0.6060
+              precision    recall  f1-score   support
+
+   No Estrés     0.8278    0.4926    0.6176      1815
+      Estrés     0.3412    0.7195    0.4629       663
+
+    accuracy                         0.5533      2478
+   macro avg     0.5845    0.6060    0.5402      2478
+weighted avg     0.6976    0.5533    0.5762      2478

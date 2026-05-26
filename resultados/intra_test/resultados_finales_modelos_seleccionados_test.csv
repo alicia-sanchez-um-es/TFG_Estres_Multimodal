@@ -1,0 +1,4 @@
+Dataset,Técnica de Fusión,V_frames,A_seg,T_tokens,Proj_Dim,Hidden_MLP,LR,Dropout,F1-Score Macro,Balanced Accuracy,ROC-AUC,Recall (Estrés)
+Global Unificado,Fusión mediante Atención,32,7,32,512,128,5e-05,0.3,0.6891,0.7173,0.7837,0.6454
+IEMOCAP,Fusión Temprana,32,7,32,512,128,0.0001,0.3,0.686,0.7102,0.7877,0.7522
+MELD,Fusión Tardía (Regresión Logística),32,7,32,512,128,0.0001,0.5,0.6664,0.7016,0.7902,0.5646

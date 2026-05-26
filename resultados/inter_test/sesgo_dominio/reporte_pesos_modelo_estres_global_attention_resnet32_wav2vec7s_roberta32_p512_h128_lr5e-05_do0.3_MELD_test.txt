@@ -1,0 +1,13 @@
+MODELO: pesos/inter_multimodal_ajuste/attention/global/pesos_modelo_estres_global_attention_resnet32_wav2vec7s_roberta32_p512_h128_lr5e-05_do0.3.pth
+Parámetros: 8928514
+Inferencia media: 3.56 ms
+ROC-AUC: 0.7168
+Balanced Accuracy: 0.6581
+              precision    recall  f1-score   support
+
+   No Estrés     0.8984    0.8631    0.8804      2213
+      Estrés     0.3714    0.4532    0.4082       395
+
+    accuracy                         0.8010      2608
+   macro avg     0.6349    0.6581    0.6443      2608
+weighted avg     0.8186    0.8010    0.8089      2608

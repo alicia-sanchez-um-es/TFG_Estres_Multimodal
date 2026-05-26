@@ -1,0 +1,8 @@
+Modelo,Modalidad,F1_Macro,Balanced_Accuracy,AUC,Recall_Estres
+EfficientNet + MFCCs (+ RMS + ZCR) + BERT,Multimodal,0.7036,0.7184,0.7943,0.644
+EfficientNet + Wav2Vec + BERT,Multimodal,0.69,0.7273,0.8065,0.7345
+EfficientNet + Wav2Vec + RoBERTa,Multimodal,0.6879,0.6871,0.7695,0.5385
+EfficientNet + MFCCs (+ RMS + ZCR) + RoBERTa,Multimodal,0.6738,0.6805,0.7492,0.5626
+EfficientNet + Wav2Vec + DeBERTa,Multimodal,0.6318,0.6347,0.7035,0.4827
+EfficientNet + MFCCs (+ RMS + ZCR) + DeBERTa,Multimodal,0.6107,0.6178,0.6788,0.4857
+Modelo con EfficientNet,Unimodal,0.5715,0.6003,0.6121,0.5792

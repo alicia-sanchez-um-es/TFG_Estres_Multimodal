@@ -1,0 +1,13 @@
+MODELO: pesos/inter_multimodal_ajuste/early/global/pesos_modelo_estres_global_early_resnet32_wav2vec11s_roberta64_p512_h128_lr5e-05_do0.3.pth
+Parámetros: 9650689
+Inferencia media: 4.85 ms
+ROC-AUC: 0.7891
+Balanced Accuracy: 0.7216
+              precision    recall  f1-score   support
+
+   No Estrés     0.8524    0.8430    0.8476      1815
+      Estrés     0.5827    0.6003    0.5914       663
+
+    accuracy                         0.7780      2478
+   macro avg     0.7175    0.7216    0.7195      2478
+weighted avg     0.7802    0.7780    0.7791      2478

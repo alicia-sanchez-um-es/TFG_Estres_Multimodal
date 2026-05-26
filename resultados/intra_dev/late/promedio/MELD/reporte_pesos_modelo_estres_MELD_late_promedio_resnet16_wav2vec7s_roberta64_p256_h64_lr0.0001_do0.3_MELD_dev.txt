@@ -1,0 +1,13 @@
+MODELO: pesos/intra_ajuste/late/promedio/MELD/pesos_modelo_estres_MELD_late_promedio_resnet16_wav2vec7s_roberta64_p256_h64_lr0.0001_do0.3.pth
+Parámetros: 6744579
+Inferencia media: 3.43 ms
+ROC-AUC: 0.7654
+Balanced Accuracy: 0.6800
+              precision    recall  f1-score   support
+
+   No Estrés     0.8918    0.8470    0.8688       915
+      Estrés     0.4142    0.5130    0.4583       193
+
+    accuracy                         0.7888      1108
+   macro avg     0.6530    0.6800    0.6636      1108
+weighted avg     0.8086    0.7888    0.7973      1108

@@ -1,0 +1,13 @@
+MODELO: pesos/unimodales_ajuste/pesos_baseline_unimodal_video_resnet_ventana32_pdim256_hmlp64_do0.3_lr1e-05.pth
+Parámetros: 5396481
+Inferencia media: 0.60 ms
+ROC-AUC: 0.6553
+Balanced Accuracy: 0.6138
+              precision    recall  f1-score   support
+
+   No Estrés     0.8374    0.6910    0.7572      3301
+      Estrés     0.3346    0.5366    0.4122       956
+
+    accuracy                         0.6563      4257
+   macro avg     0.5860    0.6138    0.5847      4257
+weighted avg     0.7245    0.6563    0.6797      4257

@@ -1,0 +1,4 @@
+Partición de Evaluación,F1-Macro,Balanced Accuracy,Recall Estrés,ROC-AUC
+Test Global,0.6891,0.7173,0.6454,0.7837
+Test IEMOCAP,0.6793,0.7098,0.7807,0.8008
+Test MELD,0.6443,0.6581,0.4532,0.7168

@@ -1,0 +1,13 @@
+MODELO: pesos/unimodales_ajuste/pesos_baseline_unimodal_audio_wav2vec_ventana7_pdim512_hmlp128_do0.3_lr0.0001.pth
+Parámetros: 2956289
+Inferencia media: 3.45 ms
+ROC-AUC: 0.4759
+Balanced Accuracy: 0.4990
+              precision    recall  f1-score   support
+
+   No Estrés     0.7673    0.9980    0.8676       499
+      Estrés     0.0000    0.0000    0.0000       151
+
+    accuracy                         0.7662       650
+   macro avg     0.3837    0.4990    0.4338       650
+weighted avg     0.5891    0.7662    0.6660       650
