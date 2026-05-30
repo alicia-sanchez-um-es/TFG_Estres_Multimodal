@@ -5,19 +5,21 @@ import torch.nn as nn
 # ARQUITECTURA MODULAR: ADAPTADORES
 # ----------------------------------------------------------------------
 # En esta sección, definimos adaptadores específicos para cada tipo de característica (visual, auditiva y textual).
-# Cada adaptador es una pequeña LSTM + red neuronal con capas lineales que toma las características extraídas por los modelos preentrenados (ResNet, ViT, Wav2Vec, RoBERTa, etc.) 
-# y las proyecta a un espacio común latente (manifold).
+# Cada adaptador es una LSTM + red neuronal pequeña con una capa lineal, que toma las características extraídas por los modelos preentrenados (ResNet, ViT, Wav2Vec, RoBERTa, etc.) 
+# y las proyecta a un espacio latente común.
 # Estos adaptadores permiten que las características de diferentes modalidades sean compatibles para la fusión multimodal posterior.
 # ----------------------------------------------------------------------
 
-# NOTA 1: La arquitectura de las redes neuronales (adaptadores) es parecida o igual (en el caso de audio y vídeo) para mantener la consistencia en la proyección de características a un espacio común. 
+# NOTA 1: Los embeddings de Vídeo y Audio entran inicialmente en formato 3D (Batch, Ventana, Características).
+# Cada embedding pasa:
+# 1. Por una LSTM de una sola capa oculta (en el caso solo de audio y vídeo, no en texto), que procesa la secuencia paso a paso.
+# -----------> Se condensa toda la dimensión temporal en un único vector final que se toma de la última capa oculta de la LSTM (hn[-1])
 
-# NOTA 2: Los embeddings de Vídeo y Audio entran inicialmente en formato 3D (Batch, Tiempo, Características).
-# Esto pasa por una red LSTM en cada adaptador visual y acústico, que procesa la secuencia
-# paso a paso. 
-# Gracias a la arquitectura de la GPU del servidor DGX, este cálculo se realiza en paralelo para todas las muestras del batch, para obtener un único vector final (hn[-1]) que condensa
-# toda la dinámica temporal en un tensor 2D (Batch, Características). La LSTM "comprime" la dimensión temporal.
-# El Texto se procesa directamente en capas lineales porque el token [CLS] de BERT/RoBERTa/DeBERTa ya actúa como un resumen semántico 2D, y no haría falta aplicar LSTM.
+#                     (Batch, Ventana, Características) --> LSTM --> (Batch, Características)
+# 
+# 2. Luego pasa por una red neuronal pequeña (MLP) de una sola capa lineal con batchnorm + relu + dropout que proyecta el vector al espacio latente
+
+# NOTA 2: En el texto, con el token [CLS] directamente obtenemos un vector 2D (Batch, Características), y solo pasa por la MLP final para proyección
 
 # NOTA 3: La memoria limitada y el problema de explosión/desvanecimiento típico de las LSTM en los adaptadores visual/audio NO afectará en nuestro caso,
 # ya que la dimensión temporal en los vídeos es de 32 frames (menor a 100, por tanto es una longitud óptima para LSTM) y en audio, será de una mayor longitud (aplicando padding), pero no supondrá un problema crítico
@@ -28,19 +30,19 @@ class VisualAdapter(nn.Module):
         super(VisualAdapter, self).__init__()
 
         # PRIMERA CAPA: Red Recurrente (LSTM)
-        # Lee los 32 frames secuencialmente de una muestra y reduce la dimensionalidad original (ej. de 2048 en ResNet) a un estado oculto de (ej. 512 dimensiones)
+        # Lee los 32 frames (o 16) secuencialmente de una muestra y reduce la dimensionalidad original (ej. de 2048 en ResNet) a un estado oculto de (ej. 512 dimensiones)
 
         self.lstm = nn.LSTM(input_dim, 
-                            hidden_lstm, # En la último paso de la red (último frame), nos quedaremos con el vector resultante de la CAPA OCULTA,  y es el que contiene la información y memoria de toda la secuencia
-                            num_layers=1, # Se fija a 1 para evitar el sobreajuste (evitar así que la red memorice los datos)
-                            batch_first=True # IMPORTANTE! Ya que nuestro tensor es de tamaño (Batch, Tiempo, Características) y no (Tiempo, Batch, Características) como esperaría PyTorch
+                            hidden_lstm, # En el último paso de la red (último frame), nos quedaremos con el vector resultante de la CAPA OCULTA, y es el que contiene la información y memoria de toda la secuencia
+                            num_layers=1, # Se fija a 1 para evitar el sobreajuste (evitar así que la red memorice los datos). manteniéndolo lo más simple posible
+                            batch_first=True # IMPORTANTE!!! Ya que nuestro tensor es de tamaño (Batch, Ventana, Características) y no (Tiempo, Ventana, Características) como esperaría PyTorch
                         )
 
         # EJEMPLO DE RESULTADO CON VALORES PREDETERMINADOS: (Batch, 32, 2048) ---> (Batch, 512)    (Cada vídeo (32 frames) queda representado con un vector de 512 dimensiones únicamente)
 
         # SEGUNDA CAPA: MLP y regularización
         self.fc = nn.Sequential(
-            nn.BatchNorm1d(hidden_lstm),  # PRIMERA CAPA:  Normalización por lotes. Esto ayuda a estabilizar el entrenamiento y acelerar la convergencia al normalizar las activaciones de la capa anterior
+            nn.BatchNorm1d(hidden_lstm),  # PRIMERA CAPA: Normalización por lotes, para estabilizar el entrenamiento y acelerar la convergencia al normalizar las activaciones de la capa anterior
             nn.ReLU(), # SEGUNDA CAPA: Activación ReLU. Introduce no linealidad en la red, lo que permite modelar relaciones complejas entre las características
             nn.Dropout(dropout_prob), # TERCERA CAPA: Dropout. Ayuda a prevenir el sobreajuste al desactivar aleatoriamente un porcentaje de las neuronas durante el entrenamiento
             # CAPAS OBLIGATORIAS PARA ASEGURAR QUE el embedding resultante tenga la dimensionalidad adecuada y esté en la misma escala (media 0, desviación 1):
@@ -85,7 +87,7 @@ class AudioAdapter(nn.Module):
             nn.BatchNorm1d(hidden_lstm), # PRIMERA CAPA: Normalización por lotes
             nn.ReLU(), # SEGUNDA CAPA: Activación ReLU. Introduce no linealidad para modelar relaciones complejas entre las características de audio
             nn.Dropout(dropout_prob), # TERCERA CAPA: Dropout para prevenir el sobreajuste
-            nn.Linear(hidden_lstm, projection_dim), # CUARTA CAPA: Capa lineal para expandir de 128 a 512 dimensiones
+            nn.Linear(hidden_lstm, projection_dim), # CUARTA CAPA: Capa lineal para expandir a 512 dimensiones
             nn.BatchNorm1d(projection_dim) # QUINTA CAPA: Asegura que el embedding final obtenido se encuentre en la misma escala estadística (media 0, desviación 1) después de la capa lineal
         )
 

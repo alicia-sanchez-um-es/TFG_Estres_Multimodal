@@ -3,9 +3,12 @@ import torch
 import numpy as np
 from torch.utils.data import Dataset
 
-# Para que PyTorch reconozca este archivo como "proveedor de datos oficial",
-# nuestra clase MultimodalStressDataset debe heredar de torch.utils.data.Dataset, 
-# y debemos implementar los métodos __len__ y __getitem__, además del constructor.
+# Para tratar nuestro dataset (tanto las fuentes individuales como el corpus unificado) como
+# un dataset oficial de PyTorch (y así, por ejemplo si PyTorch requiere
+# de cargar los datos, por ejemplo desde un DataLoader, llama a __len__ para saber
+# el tamaño del dataset y a __getitem__(i) para obtener el dato i), se requiere
+# definir obligatoriamente, a parte del __init__, los métodos __len__ y __getitem__ y
+# heredar de la clase Dataset de PyTorch
 
 class MultimodalStressDataset(Dataset):
     """
@@ -20,7 +23,7 @@ class MultimodalStressDataset(Dataset):
         Entrada:
             subject_ids (list): IDs único (ej: '0_train_dia0_utt9.npy' ---> ID: '0_train_dia0_utt9') de cada vídeo/audio/texto.
             labels (list): Etiquetas de estrés (1/0).
-            df (DataFrame): dataframe del dataset seleccionado (MELD o IEMOCAP o global).
+            df (DataFrame): dataframe del dataset seleccionado (MELD, IEMOCAP, MSP-IMPROV).
             video_model_name (str): nombre del extractor de características visual seleccionado (RESNET, EFFICIENTNET, VIT)
             audio_model_name (str): nombre del extractor de características acústicas seleccionado (WAV2VEC, MFCC)
             text_model_name (str): nombre del extractor de características textuales (BERT, ROBERTA, DEBERTA)
@@ -28,9 +31,9 @@ class MultimodalStressDataset(Dataset):
             video_folder (str):'EMBEDDINGS_VISUALES'
             audio_folder (str): 'EMBEDDINGS_AUDIO'
             text_folder (str): 'EMBEDDINGS_TEXTO'
-            max_audio_len (int): Longitud (número de pasos temporales) para aplicar el padding/truncamiento y homogeneizar los tensores de audio.
+            max_audio_len (int): Longitud (número de pasos temporales) para aplicar el padding/truncamiento.
             max_video_frames (int): Número de frames de acuerdo al tamaño de ventana elegido.
-            modalidades (list): Lista que indica las modalidades a cargar (trimodal/bimoda/unimodal)
+            modalidades (list): Lista que indica las modalidades a cargar (trimodal/bimodal/unimodal)
         """
         self.subject_ids = subject_ids
         self.labels = labels
@@ -55,9 +58,9 @@ class MultimodalStressDataset(Dataset):
         """
         Carga el archivo .npy de la muestra identificada con idx, y devuelve 
         dicho tensor tal cual, en el caso de audio y vídeo, y en el caso del texto devolvemos el tensor del [CLS] token que representa toda la secuencia completa 
-        NOTA: Para audio, debido a que la dimensión temporal es variable ( a diferencia del vídeo (32) y del texto (32/64)),
+        NOTA: Para audio, debido a que la dimensión temporal es variable ( a diferencia del texto (32/64)),
         aplicaremos padding/truncamiento para igualar el número de pasos de tiempo en función del número de pasos de acuerdo al tamaño de ventana temporal seleccionado. 
-        Para el vídeo, se aplicará también también truncamiento en el caso de haber seleccionado un número de frames menor (16).
+        Para el vídeo, se aplicará también truncamiento en el caso de haber seleccionado un número de frames menor (16).
         """
         subject_id = self.subject_ids[idx]
         label = self.labels[idx]
@@ -66,8 +69,6 @@ class MultimodalStressDataset(Dataset):
         #--------------------------------------------- VIDEO -----------------------------------------------------------------
 
         if 'video' in self.modalidades: 
-
-            ## Se devuelven los embeddings tal cual los hemos obtenido (solo aplicamos padding/truncamiento al audio y truncamiento al vídeo si procede):
 
             # 1. Vídeo -----> FORMA TENSOR FINAL: ResNet (32, 2048), EfficientNet (32,1280), ViT (32, 768)
             video_path = os.path.join(self.base_dir, self.video_folder, self.video_model_name, origen, f"{subject_id}.npy")
@@ -78,7 +79,7 @@ class MultimodalStressDataset(Dataset):
             ########### APLICAMOS TAMAÑO DE VENTANA ELEGIDO:
             if video_tensor.size(0) > self.max_video_frames:
             # Truncamos el vídeo si el usuario pide menos frames (en lugar de los 32 originales, 16)
-            # Para ello, al igual que la estrategia original de muestreo para extraer los 32 frames de forma aleatoria uniforme,
+            # Para ello, al igual que la estrategia original de muestreo para extraer los 32 frames de forma uniforme,
             # de la misma manera extraemos dichos 16 frames a partir de los 32:
                 indices = torch.linspace(0, video_tensor.size(0) - 1, steps=self.max_video_frames).long()
                 video_tensor = video_tensor[indices] # TEMPORAL DOWNSAMPLING 
@@ -120,6 +121,11 @@ class MultimodalStressDataset(Dataset):
 
         # La etiqueta se convierte en un tensor de tipo float32 y se le añade una dimensión extra con unsqueeze(0) para que tenga forma [1], lo que es necesario para la función de pérdida que espera una entrada de esa forma:
         label_tensor = torch.tensor(label, dtype=torch.float32).unsqueeze(0)
+        # torch.tensor(label, dtype=torch.float32) --> tensor escalar con 0 dimensiones: (ej: label = 1 --> tensor(1.)) 
+        # con .unsqueeze(0) añadimos una dimensión ---> ej: tensor(1.) --> tensor([1.]) con forma [1]
+
+        # ESTO ES ASÍ porque BCEWithLogistLoss requiere de que la predicción y la etiqueta tengan la misma forma:
+        # ej: prediction = tensor([0.8]) con forma [1] y label_tensor = tensor([1.]) con forma [1] 
 
         sample = {'label': label_tensor}
         

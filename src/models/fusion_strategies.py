@@ -24,11 +24,11 @@ class EarlyFusion(nn.Module):
         self.modalidades = modalidades
 
         # 1. Instanciamos los Adaptadores
-        # Este constructor sirve de "puente" para los adaptadores creados en adapters.py y el MLP FINAL para clasificación definido a continuación
+        # Este constructor sirve de "puente" para los adaptadores creados en adapters.py y el MLP FINAL para clasificación definido a continuación, llevandi a cabo la concatenación 
         # Antes de definir los adaptadores, debemos calcular la dimensión de la capa oculta con un valor razonable derivado de las dimensiones iniciales del vector de características recibido por la LSTM:
 
         if 'audio' in self.modalidades :
-            hidden_lstm_audio = max(proj_dim, audio_dim // 4)
+            hidden_lstm_audio = max(proj_dim, audio_dim // 4) 
             self.audio_adapter = AudioAdapter(input_dim=audio_dim, projection_dim=proj_dim, hidden_lstm=hidden_lstm_audio, dropout_prob=dropout_prob)
         
         if 'video' in self.modalidades :
@@ -45,14 +45,14 @@ class EarlyFusion(nn.Module):
         intermediate_dim = proj_dim
         
         ## Arquitectura del MLP:
-        ## - Capa 1 LINEAL: Reducción de proj_dim*3/proj_dim*2 a `intermediate_dim` (proj_dim) dimensiones. Primer paso hacia una reducción gradual de la dimensionalidad, permite que la red aprenda a condensar la información multimodal.
+        ## - Capa 1 LINEAL: Reducción de proj_dim*3/proj_dim*2 a `intermediate_dim` (proj_dim) dimensiones. Primer paso hacia una reducción gradual de la dimensionalidad, permite que la red aprenda a condensar la información multimodal
         ##     --> BatchNorm1d: Normalización por lotes
-        ##     --> ReLU: Para introducir no linealidad, clave para que la red aprenda relaciones no lineales entre las características multimodales.
-        ##     --> Dropout: Para prevenir el sobreajuste, dado el tamaño relativamente pequeño del dataset, debemos incluir regularización.
-        ## - Capa 2 LINEAL: Reducción de `intermediate_dim` a `hidden_mlp`. Se continúa la reducción gradual.
+        ##     --> ReLU: Para introducir no linealidad, clave para que la red aprenda relaciones no lineales entre las características multimodales
+        ##     --> Dropout: Para prevenir el sobreajuste, dado el tamaño relativamente pequeño del dataset, debemos incluir regularización
+        ## - Capa 2 LINEAL: Reducción de `intermediate_dim` a `hidden_mlp`. Se continúa la reducción gradual
         ##     --> BatchNorm1d: Normalización por lotes
-        ##     --> ReLU: Para mantener la capacidad de modelar relaciones complejas.
-        ##     --> Dropout: Para seguir previniendo el sobreajuste.
+        ##     --> ReLU: Para mantener la capacidad de modelar relaciones complejas
+        ##     --> Dropout: Para seguir previniendo el sobreajuste
         ## - Capa Final LINEAL: Reducción de `hidden_mlp` a 1 dimensión. Esta neurona final devuelve un valor bruto (logit).
 
         self.mlp = nn.Sequential(
@@ -113,7 +113,7 @@ class LateFusion(nn.Module):
     Procesa cada modalidad de forma independiente hasta el final.
     - Instancia los adaptadores para proyectar a `proj_dim` dimensiones.
     - Pasa cada representación unimodal por su propio clasificador (MLP unimodal).
-    - Aplica 3 técnicas distintas sobre los logits finales antes de aplicar la función de pérdida.
+    - Aplica 3 técnicas distintas sobre los logits finales.
     """
     def __init__(self, visual_dim=2048, audio_dim=768, text_dim=768, proj_dim=512, hidden_mlp=128, dropout_prob=0.5, fusion_mode = 'promedio', modalidades = ['video','audio','texto']):
         super(LateFusion, self).__init__()
@@ -229,25 +229,22 @@ class LateFusion(nn.Module):
             # Confianza = probabilidad media de los que votaron igual que la mayoría
             conf_estres = torch.sum(probs * votos, dim=1, keepdim=True) / (total_votos + 1e-8)
             # Sumamos las probabilidades de los que votaron no estrés y dividimos por su cantidad
-            num_mods = len(self.modalidades)
-            conf_no_estres = torch.sum((1 - probs) * (1 - votos), dim=1, keepdim=True) / (num_mods - total_votos + 1e-8)
-            ### LOGIT: positivo si mayoría vota estrés, negativo si no
-            confianza = torch.where(estres_mask, conf_estres, -conf_no_estres) # Si estres_mask es TRUE es porque la mayoría votaron ESTRÉS, por tanto se devuelve logit positivo conf_estres que es la confianza media de los que votaron estrés. Pero si estres_mask es False, es porque la mayoría votaron NO ESTRÉS, por tanto devolvemos logit negativo con la confianza media de los que votaron no estrés -conf_no_estres
-            final_logit = confianza
+            conf_no_estres = torch.sum((1 - probs) * (1 - votos), dim=1, keepdim=True) / (len(self.modalidades) - total_votos + 1e-8)
+            ### LOGIT: positivo si mayoría vota estrés, negativo si no 
+            final_logit = torch.where(estres_mask, conf_estres, -conf_no_estres) # Si estres_mask es TRUE es porque la mayoría votaron ESTRÉS, por tanto se devuelve logit positivo conf_estres que es la confianza media de los que votaron estrés. Pero si estres_mask es False, es porque la mayoría votaron NO ESTRÉS, por tanto devolvemos logit negativo con la confianza media de los que votaron no estrés -conf_no_estres
 
         ############################ TÉCNICA 2: Fusión mediante media aritmética de los logits ###################################
         
         elif self.fusion_mode == 'promedio' :
         # Fusión de decisiones (Promedio de los logits)
-        # Al promediar los logits matemáticamente puros (antes de la sigmoide),
-        # mantenemos la compatibilidad con BCEWithLogitsLoss, que es la función de pérdida que hemos aplicado en train
+        # Al promediar los logits matemáticamente puros (antes de la sigmoide), mantenemos la compatibilidad con BCEWithLogitsLoss
             final_logit = torch.mean(stacked_logits, dim=1, keepdim=True)
 
         ############################# TÉCNICA 3: Fusión ponderada aprendida (Regresión Logística) #####################################
             # Matemáticamente, una regresión logística clásica es la suma ponderada de las entradas 
-            # seguida de una función Sigmoide. Al tener la función de pérdida BCEWithLogitsLoss, esta cuenta
-            # con la Sigmoide internamente, por tanto, aplicando aquí una suma ponderada aprendida a través de una capa lineal,
-            # conseguimos técnicamente lo mismo que una regresión logística.
+            # seguida de una sigmoide. Al tener la función de pérdida BCEWithLogitsLoss, esta cuenta
+            # con la sigmoide internamente, por tanto, aplicando aquí una suma ponderada aprendida a través de una capa lineal,
+            # conseguimos técnicamente lo mismo que una regresión logística
 
         elif self.fusion_mode == 'logistica':
             final_logit = self.logistic_fusion(stacked_logits)
@@ -262,9 +259,9 @@ class LateFusion(nn.Module):
 
 class AttentionFusion(nn.Module):
     """
-    Arquitectura de Fusión mediante Atención Aditiva entre modalidades.
+    Arquitectura de Fusión mediante Atención Aditiva (de Bahdanau) entre modalidades.
     Esta red aprende a ponderar dinámicamente la importancia de cada modalidad (Vídeo, Audio, Texto)
-    para cada muestra de forma independiente
+    para cada muestra de forma independiente inspirándose en el mecanismo de atención aditiva de Bahdanau.
     """
     def __init__(self, visual_dim=2048, audio_dim=768, text_dim=768, proj_dim=512, hidden_mlp=128, dropout_prob=0.5, modalidades = ['video','audio','texto']):
         super(AttentionFusion, self).__init__()
@@ -289,14 +286,14 @@ class AttentionFusion(nn.Module):
         ##
         ##              ---------------- MECANISMO DE ATENCIÓN ADITIVO ----------------
         ##
-        ## - Capa 1 LINEAL: CAPA DE ATENCIÓN. Reducción de `proj_dim` a `hidden_mlp` dimensiones, por cada modalidad por separado. Reducción a las `hidden_mlp` características más relevantes.
-        ##      --> Tanh(): Función de activación Tangente Hiperbólica. Matemáticamente, coge el vector de salida de la anterior capa lineal y proyecta los valores entre -1 y 1. Esto permite que haya valores positivos y negativos, ya que los negativos permiten que la red aprenda los "pesos" de cada modalidad de forma estable y con mayor contraste entre aquello relevante (más cercano a 1) y ruido (más cercano a -1).
-        ## - Capa 2 LINEAL: Score de Atención: Recibe de entrada un vector de `hidden_mlp` dimensiones filtradas por Tanh() -> De salida obtenemos un escalar (raw score o energía), que es la puntuación que le da la red de atención a dicha modalidad concreta.
+        ## - Capa 1 LINEAL: CAPA DE ATENCIÓN. Reducción de `proj_dim` a `hidden_mlp` dimensiones, por cada modalidad por separado. Reducción a las `hidden_mlp` características más relevantes
+        ##      --> Tanh(): Función de activación Tangente Hiperbólica. Matemáticamente, coge el vector de salida de la anterior capa lineal y proyecta los valores entre -1 y 1. Esto permite que haya valores positivos y negativos, ya que los negativos permiten que la red aprenda los "pesos" de cada modalidad de forma estable y con mayor contraste entre aquello relevante (más cercano a 1) y ruido (más cercano a -1)
+        ## - Capa 2 LINEAL: Score de Atención: Recibe de entrada un vector de `hidden_mlp` dimensiones filtradas por Tanh() -> De salida obtenemos un escalar (raw score o energía), que es la puntuación que le da la red de atención a dicha modalidad concreta
         ##
         ##                          -------------- CLASIFICADOR MLP ----------------
-        ## - Capa 1 LINEAL: Reducción del vector fusionado a `hidden_mlp` dims. 
-        ##     --> ReLU: Para introducir no linealidad.
-        ##     --> Dropout: Para prevenir el sobreajuste.
+        ## - Capa 1 LINEAL: Reducción del vector fusionado a `hidden_mlp` dims
+        ##     --> ReLU: Para introducir no linealidad
+        ##     --> Dropout: Para prevenir el sobreajuste
         ## - Capa 2 LINEAL: Reducción de `hidden_mlp` dimensiones a 1--> LOGIT FINAL DE LA RED!!!
 
 
@@ -341,7 +338,7 @@ class AttentionFusion(nn.Module):
         
         # 3. Calculamos los "Scores" de Atención
         # Le pasamos el bloque a la red de atención. Nos devuelve un score por modalidad: (Batch, 3, 1)
-        attn_scores = self.attention_layer(stacked_embs)
+        attn_scores = self.attention_layer(stacked_embs) # PRODUCTO PUNTO A PUNTO
         
         # 4. Aplicamos Softmax: 
         # Con softmax se mapean esos scores para que los 3 valores sumen exactamente 1.0 (interpretándolos así como probabilidades, por ej.: 0.7, 0.2, 0.1, por cada modalidad ) 
