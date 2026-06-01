@@ -6,18 +6,17 @@
 <title>Detección de estrés multimodal · Resultados</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,400&family=Archivo:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#15120d;--bg2:#1d1913;--bg3:#241f17;--ink:#f5efe3;--muted:#a99e88;--faint:#6f6655;
+    --bg:#fafafa;--bg2:#ffffff;--bg3:#f3f4f6;--ink:#222222;--muted:#555555;--faint:#777777;
     --line:rgba(245,239,227,.10);--texto:#ecb949;--video:#57c6bb;--audio:#e87f6a;--good:#9bd17a;--bad:#e8746b;
-    --display:"Fraunces",Georgia,serif;--body:"Archivo",system-ui,sans-serif;--mono:"JetBrains Mono",monospace;
+    --display:"Inter",system-ui,sans-serif;--body:"Inter",system-ui,sans-serif;--mono:"Inter",system-ui,sans-serif;
   }
   *{margin:0;padding:0;box-sizing:border-box}
-  html{scroll-behavior:smooth}
+  html{}
   body{background:var(--bg);color:var(--ink);font-family:var(--body);line-height:1.5;-webkit-font-smoothing:antialiased;overflow-x:hidden}
-  body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.5;
-    background:radial-gradient(60% 50% at 80% -5%,rgba(236,185,73,.10),transparent 60%),radial-gradient(50% 40% at 0% 100%,rgba(87,198,187,.08),transparent 60%)}
+  body::before{display:none}
   .wrap{max-width:980px;margin:0 auto;padding:clamp(28px,6vw,72px) clamp(18px,5vw,40px) 64px;position:relative;z-index:1}
 
   header{margin-bottom:clamp(40px,7vw,72px)}
@@ -97,9 +96,7 @@
   .repo svg{width:17px;height:17px;fill:var(--texto)}
   .foot-note{margin-top:18px;font-size:12.5px;color:var(--faint);max-width:60ch;line-height:1.6}
 
-  .reveal{opacity:0;transform:translateY(16px);animation:rise .7s cubic-bezier(.2,.7,.2,1) forwards}
-  @keyframes rise{to{opacity:1;transform:none}}
-  .d1{animation-delay:.05s}.d2{animation-delay:.13s}.d3{animation-delay:.22s}.d4{animation-delay:.32s}
+  
 
   @media(max-width:560px){
     .scores{grid-template-columns:repeat(2,1fr)}
@@ -112,7 +109,7 @@
 <div class="wrap">
 
   <header class="reveal d1">
-    <div class="eyebrow">Trabajo Fin de Grado · Dashboard de resultados</div>
+    <div class="eyebrow">Trabajo Fin de Grado · Resultados experimentales</div>
     <h1>Detección de estrés <em>multimodal</em> en entornos conversacionales</h1>
     <div class="byline">
       <span><b>Alicia Sánchez Gomariz</b></span>
@@ -123,7 +120,7 @@
 
   <!-- SECTION 1 -->
   <section class="reveal d2">
-    <div class="sec-head"><span class="sec-num">01</span><h2>Los modelos del proyecto</h2></div>
+    <div class="sec-head"><span class="sec-num">01</span><h2>Comparativa de modelos</h2></div>
     <p class="sec-sub">Desde los baselines unimodales hasta el modelo global. Elige un modelo y compara sus resultados en test. En los modelos trimodales se muestra además análisis de interpretabilidad y estudio de ablación.</p>
 
     <div class="card">
@@ -188,8 +185,8 @@
 
   <!-- SECTION 2 -->
   <section class="reveal d3">
-    <div class="sec-head"><span class="sec-num">02</span><h2>Transferencia de aprendizaje</h2></div>
-    <p class="sec-sub">¿Generaliza el modelo a un corpus que nunca vio? Elige el <strong>dominio no visto</strong> y mira cómo rinde el modelo cuando se entrena con los otros dos (validación cruzada iterativa).</p>
+    <div class="sec-head"><span class="sec-num">02</span><h2>Evaluación cross-domain</h2></div>
+    <p class="sec-sub">Evaluación de generalización sobre dominios no observados durante el entrenamiento. Elige el <strong>dominio no visto</strong> y mira cómo rinde el modelo cuando se entrena con los otros dos (validación cruzada iterativa).</p>
 
     <div class="card">
       <div class="chips" id="chips">
@@ -230,12 +227,7 @@
   function fmt4(v){return v.toFixed(4).replace('.',',');}
   function fmt3(v){return v.toFixed(3).replace('.',',');}
   function fmtPct(v){return v.toFixed(1).replace('.',',')+'%';}
-  function countUp(el,to){
-    const from=parseFloat((el.textContent||'0').replace(',','.'))||0;
-    const start=performance.now(),dur=600;
-    function step(t){const p=Math.min((t-start)/dur,1),e=1-Math.pow(1-p,3);el.textContent=fmt4(from+(to-from)*e);if(p<1)requestAnimationFrame(step);}
-    requestAnimationFrame(step);
-  }
+  function countUp(el,to){el.textContent=fmt4(to);}
 
   /* ===== SECCIÓN 1 ===== */
   const MODELS = {
