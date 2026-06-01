@@ -1,4 +1,4 @@
-# Detección de Estrés Multimodal (TFG)
+# Detección de estrés multimodal en entornos conversacionales (TFG)
 
 Este repositorio contiene el código fuente y los experimentos para el Trabajo de Fin de Grado: **"Detección de estrés en entornos conversacionales"**.
 
