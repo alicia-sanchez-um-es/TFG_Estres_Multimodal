@@ -66,6 +66,7 @@
   .c-texto{color:var(--texto)}.c-video{color:var(--video)}.c-audio{color:var(--audio)}
 
   .uses{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:4px}
+  .uses[hidden]{display:none}
   .use-chip{font-family:var(--mono);font-size:12.5px;padding:9px 16px;border-radius:999px;border:1px solid var(--line);background:var(--bg3);color:var(--faint);opacity:.4;transition:all .3s ease}
   .use-chip.on{opacity:1}
   .use-chip.on.ut{color:var(--texto);border-color:rgba(236,185,73,.5)}
@@ -200,7 +201,7 @@
         <span class="pill test">Evaluado en: <b id="testOn">MSP-IMPROV</b></span>
       </div>
       <div class="scores">
-        <div class="score"><div class="lab">F1-Macro</div><div class="val" id="m-f1">0,5258</div><div class="ref">intra-dominio: 0,6891</div></div>
+        <div class="score"><div class="lab">F1-Macro</div><div class="val" id="m-f1">0,5258</div>><div class="ref"></div></div>
         <div class="score"><div class="lab">Bal. Accuracy</div><div class="val" id="m-ba">0,5328</div><div class="ref"></div></div>
         <div class="score"><div class="lab">ROC-AUC</div><div class="val" id="m-auc">0,5257</div><div class="ref"></div></div>
         <div class="score"><div class="lab">Recall estrés</div><div class="val" id="m-rec">0,3988</div><div class="ref"></div></div>
