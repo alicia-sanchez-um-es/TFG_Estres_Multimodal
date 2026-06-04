@@ -37,9 +37,3 @@ El proyecto utiliza Python. Las principales librerías son:
 2. Descargar los datasets originales MELD, IEMOCAP y MSP-IMPROV y colocarlos en la carpeta `data/RAW/`.
 3. Ejecutar los notebooks en orden numérico para replicar el preprocesamiento y EDA.
 4. Utilizar los scripts de `src/` para ejecutar los entrenamientos de los modelos de fusión.
-
----
-*Autor: SANCHEZ GOMARIZ, ALICIA*
-*Tutor: RUIPEREZ VALIENTE, JOSE ANTONIO*
-*Cotutor: ALBALADEJO GONZALEZ, MARIANO*
-*Facultad de Informática, Grado Ciencia e Ingeniería de Datos, Universidad de Murcia*
