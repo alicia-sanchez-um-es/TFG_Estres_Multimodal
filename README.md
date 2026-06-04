@@ -1,6 +1,6 @@
 # Detección de estrés multimodal en entornos conversacionales (TFG)
 
-Este repositorio contiene el código fuente y los experimentos para el Trabajo de Fin de Grado: **"Detección de estrés en entornos conversacionales"**.
+Este repositorio contiene el código fuente y los experimentos para el Trabajo de Fin de Grado: **"Detección de estrés multimodal en entornos conversacionales"**.
 
 ## Descripción
 El objetivo principal de este proyecto es evaluar el impacto de la multimodalidad y el entrenamiento multidominio en la detección automática de estrés en entornos conversacionales, analizando si la integración de señales de audio, vídeo y texto de diversos corpus mejora el rendimiento y la capacidad de generalización frente a modelos entrenados en dominios y modalidades aisladas. Para ello, se han empleado datasets como **IEMOCAP**, **MELD** y **MSP-IMPROV**, y se han probado diversos modelos preentrenados para la extracción de características (ViT, ResNet, Wav2Vec 2.0, RoBERTa, ...), junto con diferentes estrategias de fusión.
@@ -15,9 +15,9 @@ El proyecto sigue la siguiente organización de directorios:
 - **`src/`**: Código fuente modular del proyecto.
     - `data/`: Scripts de carga de datos (`dataset.py`).
     - `models/`: Arquitecturas de los modelos (`adapters.py`, `fusion_strategies.py`, `unimodal_classifier.py`).
-    - Scripts principales: `train.py`, `evaluate.py` y `extract_visual_features.py`.
+    - Scripts principales: `train.py`, `evaluate.py`.
 - **`resultados/`**: Reportes de métricas (F1-Score, ROC-AUC, ...) y predicciones de los modelos.
-- **`figuras/`**: Gráficas generadas adjuntadas en la memoria del proyecto.
+- **`figuras/`**: Gráficas generadas presentes en la memoria del proyecto.
 
 ## Datasets 
 - **MELD**: Disponible públicamente. Descarga en https://web.eecs.umich.edu/~mihalcea/downloads/MELD.Raw.tar.gz
