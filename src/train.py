@@ -15,7 +15,7 @@ from models.adapters import VisualAdapter, AudioAdapter, TextAdapter
 from models.fusion_strategies import EarlyFusion, LateFusion, AttentionFusion
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Entrenamiento Multimodal (Trimodal/Bimodal) para Detección de Estrés")
+    parser = argparse.ArgumentParser(description="Entrenamiento del modelo (unimodal, bimodal o trimodal) para la detección de estrés")
 
     # Argumentos de entrada por terminal directamente: 
 
@@ -54,13 +54,13 @@ def parse_args():
     # ---> ENTRENAMIENTO Y REGULARIZACIÓN
     parser.add_argument('--lr', type=float, default=1e-4, help='Learning rate')
     parser.add_argument('--dropout', type=float, default=0.5, help='Probabilidad de Dropout')
-    parser.add_argument('--weight_decay', type=float, default=1e-2, help='Weight decay (L2)')
+    parser.add_argument('--weight_decay', type=float, default=1e-2, help='Weight decay')
     parser.add_argument('--batch_size', type=int, default=32, help='Tamaño del batch')
     parser.add_argument('--epochs', type=int, default=20, help='Número máximo de epochs')
     parser.add_argument('--patience', type=int, default=5, help='Paciencia para Early Stopping')
     parser.add_argument('--pos_weight_mult', type=float, default=1.0, help='Multiplicador para el peso de la clase positiva')
 
-    # 5. TRANSFER-LEARNING: Entrenamiento con corpus MSP-IMPROV + MELD/IEMOCAP:
+    # 5. TRANSFER-LEARNING: Entrenamiento con corpus MSP-IMPROV/MELD/IEMOCAP:
     parser.add_argument('--transfer_learning', type=str, default=None, choices=['MELD_MSP-IMPROV', 'IEMOCAP_MSP-IMPROV'],
                         help='Activa la evaluación de transferencia cruzada entrenando con la combinación indicada. Sobrescribe a --train_dataset. Solo aplicable para arquitecturas trimodales.')
     
@@ -70,10 +70,17 @@ def parse_args():
 def main():
     args = parse_args()
 
-    mods = []
-    if args.video is not None: mods.append('video')
-    if args.audio is not None: mods.append('audio')
-    if args.text is not None: mods.append('texto')
+    mods = [] # Aquí guardamos las modalidades seleccionadas por el usuario
+    if args.video is not None: 
+        mods.append('video')
+    if args.audio is not None: 
+        mods.append('audio')
+    if args.text is not None: 
+        mods.append('texto')
+
+    if len(mods) == 0:
+        raise ValueError("Debes especificar al menos un backbone (--video, --audio o --text) para evaluar el modelo.")
+
 
     #------------------------------------------------------------------
     # CONFIGURACIÓN DEL ENTORNO
@@ -100,7 +107,7 @@ def main():
     TEXTO_RUTA = mapeo_rutas['text']
 
     #------------------------------------------------------------------
-    # CÁLCULO DINÁMICO DATOS EN SERVIDOR DGX y DE PASOS DE TIEMPO (TIME STEPS)/MAX_AUDIO_LEN
+    # CÁLCULO DINÁMICO DATOS EN SERVIDOR DGX y TAMAÑO VENTANA
     # -----------------------------------------------------------------
 
     # -------------- 1. CARGA DE DATOS train y dev -------------------
@@ -112,12 +119,12 @@ def main():
     # FORMATO: "(dataset_origin)_(Utterance_ID)" reemplanzando cualquier barra por guión bajo
     df['file_id'] = (df['dataset_origin'].astype(str) + "_" + df['Utterance_ID'].astype(str)).str.replace("/", "_") 
 
-        # -------------------------- VALIDACIÓN TRANSFER LEARNING: MSP-IMPROV + MELD/IEMOCAP ------------------
+        # -------------------------- VALIDACIÓN TRANSFER LEARNING: MSP-IMPROV/MELD/IEMOCAP ------------------
 
     if args.transfer_learning is not None: 
         csv_path = os.path.join(BASE_DIR, 'MSP-Improv_clean.csv')
         df_msp = pd.read_csv(csv_path)
-        df_msp['dataset_origin'] = 'MSP-IMPROV' # <- Ahora sí añadimos la columna que indique el origen del dataset, ya que concatenará con MELD o IEMOCAP a continuación
+        df_msp['dataset_origin'] = 'MSP-IMPROV' # <- Ahora sí añadimos la columna que indique el origen del dataset, ya que se concatenará con MELD o IEMOCAP a continuación
 
         if args.transfer_learning == 'MELD_MSP-IMPROV':
             df = df[df['dataset_origin'] == 'MELD']
@@ -135,7 +142,7 @@ def main():
             df = df[df['dataset_origin'] == args.train_dataset]
 
     
-    # FILTRAMOS los datos de TRAIN (Columna 'split' == 'train') y los de Validación ('dev'):
+    # FILTRAMOS los datos de TRAIN (columna 'split' == 'train') y los de validación ('dev'):
 
     df_train = df[df['split']=='train']
     train_ids = df_train['file_id'].tolist()
@@ -149,24 +156,14 @@ def main():
 
     # VIDEO:
 
-    if args.video == 'resnet':
-         VISUAL_INPUT_DIM = 2048
-    elif args.video == 'efficientnet':
-        VISUAL_INPUT_DIM = 1280
-    else: # vit
-        VISUAL_INPUT_DIM = 768
+    VISUAL_INPUT_DIM = 2048 if args.video == 'resnet' else (1280 if args.video == 'efficientnet' else 768)
+    MAX_VIDEO_FRAMES = args.video_frames
 
     # AUDIO:
-    if args.audio == 'mfcc':
-        AUDIO_INPUT_DIM = 15
-    else: # wav2vec
-        AUDIO_INPUT_DIM = 768 
 
+    AUDIO_INPUT_DIM = 15 if args.audio == 'mfcc' else 768
     # Para hacer la comparativa justa entre MFCCs y Wav2Vec 2.0, ambos presentan frecuencia de muestreo de 16kHz (sr=16000) y un hop_length de 320. Por tanto, extraen 1 vector de características cada 320/16000 = 0,02 (20 ms). Con esa configuración, para 11s, se limita dicha ventana temporal en MAX_AUDIO_LEN = 550 (11/0,02 = 550 vectores de características), mientras que para 7s el tamaño de la ventana queda con 350 vectores extraídos (7/0,02 = 350)
     MAX_AUDIO_LEN = 550 if args.audio_len == 11 else 350 
-    
-    # VÍDEO:
-    MAX_VIDEO_FRAMES = args.video_frames
 
 
     #------------------------------------------------------------------
@@ -200,7 +197,7 @@ def main():
 
 
     # ---------------------------------------------------------
-    # INSTANCIACIÓN DEL MODELO, MENSAJE AL USUARIO, 
+    # INSTANCIACIÓN DE LOS MÓDULOS, MENSAJE AL USUARIO, 
     # DEFINICIÓN DE NOMBRES DE ARCHIVOS Y MECANISMO EARLY STOPPING
     # ---------------------------------------------------------
 
@@ -227,54 +224,40 @@ def main():
         
     # -------------------- BIMODAL/TRIMODAL -------------------------
 
-    if len(mods) == 2 or len(mods) == 3:
+    else: # len(mods) > 1
         # Mostramos por pantalla el tipo de entrenamiento iniciado por el usuario:
-        print('DETECCIÓN DE ESTRÉS: ')
+        print('DETECCIÓN DE ESTRÉS: ') 
         print(f"--> Fusión: {args.fusion.upper()}")
-        if mods == ['video','audio']:
+    
+        if mods == ['video', 'audio']:
             print(f"--> Vídeo: {args.video} ({MAX_VIDEO_FRAMES} frames) -> {VIDEO_RUTA}")
-            print(f"--> Audio: {args.audio} ({args.audio_len}s -> {MAX_AUDIO_LEN} pasos) -> {AUDIO_RUTA}") 
-            if args.fusion == 'late':
-                nombre_modelo = f"pesos_modelo_estres_{args.train_dataset}_{args.fusion}_{args.late_mode}_{args.video}{args.video_frames}_{args.audio}{args.audio_len}s_p{args.proj_dim}_h{args.hidden_mlp}_lr{args.lr}_do{args.dropout}.pth" 
-                nombre_historial = f"historial_estres_{args.train_dataset}_{args.fusion}_{args.late_mode}_{args.video}{args.video_frames}_{args.audio}{args.audio_len}s_p{args.proj_dim}_h{args.hidden_mlp}_lr{args.lr}_do{args.dropout}.json"
-            else:
-                nombre_modelo = f"pesos_modelo_estres_{args.train_dataset}_{args.fusion}_{args.video}{args.video_frames}_{args.audio}{args.audio_len}s_p{args.proj_dim}_h{args.hidden_mlp}_lr{args.lr}_do{args.dropout}.pth" 
-                nombre_historial = f"historial_estres_{args.train_dataset}_{args.fusion}_{args.video}{args.video_frames}_{args.audio}{args.audio_len}s_p{args.proj_dim}_h{args.hidden_mlp}_lr{args.lr}_do{args.dropout}.json"
-
-
-        elif mods == ['video','texto']:
-            print(f"--> Vídeo: {args.video} ({MAX_VIDEO_FRAMES} frames) -> {VIDEO_RUTA}") 
+            print(f"--> Audio: {args.audio} ({args.audio_len}s -> {MAX_AUDIO_LEN} pasos) -> {AUDIO_RUTA}")
+            mods_str = f"{args.video}{args.video_frames}_{args.audio}{args.audio_len}s"
+            nombre_dataset_archivo = args.train_dataset
+        elif mods == ['video', 'texto']:
+            print(f"--> Vídeo: {args.video} ({MAX_VIDEO_FRAMES} frames) -> {VIDEO_RUTA}")
             print(f"--> Texto: {args.text} -> {TEXTO_RUTA}")
-            if args.fusion == 'late':
-                nombre_modelo = f"pesos_modelo_estres_{args.train_dataset}_{args.fusion}_{args.late_mode}_{args.video}{args.video_frames}_{args.text}_p{args.proj_dim}_h{args.hidden_mlp}_lr{args.lr}_do{args.dropout}.pth" 
-                nombre_historial = f"historial_estres_{args.train_dataset}_{args.fusion}_{args.late_mode}_{args.video}{args.video_frames}_{args.text}_p{args.proj_dim}_h{args.hidden_mlp}_lr{args.lr}_do{args.dropout}.json"
-            else:
-                nombre_modelo = f"pesos_modelo_estres_{args.train_dataset}_{args.fusion}_{args.video}{args.video_frames}_{args.text}_p{args.proj_dim}_h{args.hidden_mlp}_lr{args.lr}_do{args.dropout}.pth" 
-                nombre_historial = f"historial_estres_{args.train_dataset}_{args.fusion}_{args.video}{args.video_frames}_{args.text}_p{args.proj_dim}_h{args.hidden_mlp}_lr{args.lr}_do{args.dropout}.json"
-
-
-        elif mods == ['audio','texto']:
+            mods_str = f"{args.video}{args.video_frames}_{args.text}"
+            nombre_dataset_archivo = args.train_dataset
+        elif mods == ['audio', 'texto']:
             print(f"--> Audio: {args.audio} ({args.audio_len}s -> {MAX_AUDIO_LEN} pasos) -> {AUDIO_RUTA}")
             print(f"--> Texto: {args.text} -> {TEXTO_RUTA}")
-            if args.fusion == 'late':
-                nombre_modelo = f"pesos_modelo_estres_{args.train_dataset}_{args.fusion}_{args.late_mode}_{args.audio}{args.audio_len}s_{args.text}_p{args.proj_dim}_h{args.hidden_mlp}_lr{args.lr}_do{args.dropout}.pth" 
-                nombre_historial = f"historial_estres_{args.train_dataset}_{args.fusion}_{args.late_mode}_{args.audio}{args.audio_len}s_{args.text}_p{args.proj_dim}_h{args.hidden_mlp}_lr{args.lr}_do{args.dropout}.json"
-            else:
-                nombre_modelo = f"pesos_modelo_estres_{args.train_dataset}_{args.fusion}_{args.audio}{args.audio_len}s_{args.text}_p{args.proj_dim}_h{args.hidden_mlp}_lr{args.lr}_do{args.dropout}.pth" 
-                nombre_historial = f"historial_estres_{args.train_dataset}_{args.fusion}_{args.audio}{args.audio_len}s_{args.text}_p{args.proj_dim}_h{args.hidden_mlp}_lr{args.lr}_do{args.dropout}.json"
+            mods_str = f"{args.audio}{args.audio_len}s_{args.text}"
+            nombre_dataset_archivo = args.train_dataset
 
-
-        else :
-            nombre_dataset_archivo = args.transfer_learning if args.transfer_learning is not None else args.train_dataset
+        else : # len(mods) == 3 
             print(f"--> Vídeo: {args.video} ({MAX_VIDEO_FRAMES} frames) -> {VIDEO_RUTA}")
             print(f"--> Audio: {args.audio} ({args.audio_len}s -> {MAX_AUDIO_LEN} pasos) -> {AUDIO_RUTA}")
             print(f"--> Texto: {args.text} -> {TEXTO_RUTA}")
-            if args.fusion == 'late':
-                nombre_modelo = f"pesos_modelo_estres_{nombre_dataset_archivo}_{args.fusion}_{args.late_mode}_{args.video}{args.video_frames}_{args.audio}{args.audio_len}s_{args.text}_p{args.proj_dim}_h{args.hidden_mlp}_lr{args.lr}_do{args.dropout}.pth" 
-                nombre_historial = f"historial_estres_{nombre_dataset_archivo}_{args.fusion}_{args.late_mode}_{args.video}{args.video_frames}_{args.audio}{args.audio_len}s_{args.text}_p{args.proj_dim}_h{args.hidden_mlp}_lr{args.lr}_do{args.dropout}.json"
-            else:
-                nombre_modelo = f"pesos_modelo_estres_{nombre_dataset_archivo}_{args.fusion}_{args.video}{args.video_frames}_{args.audio}{args.audio_len}s_{args.text}_p{args.proj_dim}_h{args.hidden_mlp}_lr{args.lr}_do{args.dropout}.pth" 
-                nombre_historial = f"historial_estres_{nombre_dataset_archivo}_{args.fusion}_{args.video}{args.video_frames}_{args.audio}{args.audio_len}s_{args.text}_p{args.proj_dim}_h{args.hidden_mlp}_lr{args.lr}_do{args.dropout}.json"
+            mods_str = f"{args.video}{args.video_frames}_{args.audio}{args.audio_len}s_{args.text}"
+            nombre_dataset_archivo = args.transfer_learning if args.transfer_learning is not None else args.train_dataset # Si se aplicase transfer_learning solo se aplica al caso trimodal
+
+        late_str = f"_{args.late_mode}" if args.fusion == 'late' else ""
+        sufijo = f"{nombre_dataset_archivo}_{args.fusion}{late_str}_{mods_str}_p{args.proj_dim}_h{args.hidden_mlp}_lr{args.lr}_do{args.dropout}"
+        nombre_modelo = f"pesos_modelo_estres_{sufijo}.pth"
+        nombre_historial = f"historial_estres_{sufijo}.json"
+
+        # ---------- TÉCNICAS DE FUSIÓN ----------------
 
         if args.fusion == 'early':
             model = EarlyFusion(visual_dim=VISUAL_INPUT_DIM, audio_dim=AUDIO_INPUT_DIM, text_dim=768, proj_dim=args.proj_dim, hidden_mlp=args.hidden_mlp, dropout_prob=args.dropout, modalidades=mods)
@@ -290,7 +273,7 @@ def main():
     # FUNCIÓN DE PÉRDIDA Y OPTIMIZADOR
 
     # 1. POC: Prueba inicial con BCELoss, pero se cambió a BCEWithLogitsLoss para mayor estabilidad numérica al trabajar con logits en la capa final, especialmente dado el desbalanceo del dataset:
-    # criterion = nn.BCELoss() 
+    # funcion_perdida = nn.BCELoss() 
 
     # 2. CAMBIO A BCEWithLogitsLoss: Esta función de pérdida combina una capa sigmoide con la función de pérdida de entropía cruzada, lo que es más estable numéricamente para problemas de clasificación binaria, especialmente con datasets desbalanceados como el nuestro. Al usar esta función, podemos dejar la capa final del modelo sin activación (logits) y la función de pérdida se encargará de aplicar la sigmoide internamente
     # Calculamos cuántos hay de cada clase en Train (este parámetro se fija en train para validación y test, para evitar así la fuga de datos)
@@ -300,11 +283,11 @@ def main():
     # Fórmula del peso: (Nº muestras clase mayoritaria) / (Nº muestras clase minoritaria)
     pos_weight = num_negativos / num_positivos if num_positivos > 0 else 1.0 # Evitamos división por cero, si no hay positivos, asignamos un peso de 1 (sin ponderación)
 
-    # Le aplicamos el multiplicador indicado para aplicar un mayor o menor peso:
+    # Le aplicamos el multiplicador indicado para aplicar un mayor o menor peso (aunque en nuestras pruebas de experimentación lo vamos a dejar fijo a 1.0):
     pos_weight *= args.pos_weight_mult
 
     # EJ: Un pos_weight de 1.4 indica que hay aproximadamente 1.4 veces más muestras negativas que positivas (por cada muestra positiva, hay 1.4 muestras negativas), por lo que el modelo penalizará 1.4 veces más los errores en la clase positiva
-    criterion = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([pos_weight], dtype=torch.float32).to(device)) # Asignamos el peso a la clase positiva (estrés) para penalizar más los errores en esa clase y ayudar al modelo a aprender mejor a identificarla, dado el desbalanceo del dataset
+    funcion_perdida = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([pos_weight], dtype=torch.float32).to(device)) 
     # El parámetro pos_weight sirve para asignar peso a la clase positiva (minoritaria)
 
     # AdamW como optimizador para evitar el sobreajuste
@@ -352,14 +335,14 @@ def main():
                 unico_input = video_x if video_x is not None else (audio_x if audio_x is not None else text_x)
                 predictions = model(unico_input)
             else :
-                predictions = model(video_x=video_x, audio_x=audio_x, text_x=text_x)
-            # Cálculo del Error (Loss)
-            loss = criterion(predictions, labels)
-            # Backward Propagation - Calculamos los gradientes de la función de pérdida con respecto a los pesos del modelo
+                predictions = model(video_x=video_x, audio_x=audio_x, text_x=text_x) # ya el modelo se encarga de procesar solo las modalidades que le hayamos indicado
+            # Cálculo del error (loss)
+            loss = funcion_perdida(predictions, labels)
+            # Backward propagation: calculamos los gradientes de la función de pérdida con respecto a los pesos del modelo
             loss.backward()
             # Actualizamos los pesos de la red
             optimizer.step()
-            # Estadísticas visuales
+
             running_loss += loss.item()
             progress_bar.set_postfix(loss=loss.item())
 
@@ -371,11 +354,10 @@ def main():
         model.eval() # Apagamos el dropout para la validación
         val_loss = 0.0
 
-        # Listas temporales para el F1-Score de esta epoch:
         epoch_labels = []
         epoch_preds = []
 
-        with torch.no_grad(): # No calculamos gradientes durante la validación para ahorrar memoria y acelerar el proceso
+        with torch.no_grad(): # No calculamos gradientes durante la validación 
             for batch in val_loader :
                 labels = batch['label'].to(device)
                 video_x = batch['video'].to(device) if 'video' in batch else None
@@ -389,14 +371,14 @@ def main():
                 else :
                     predictions = model(video_x=video_x, audio_x=audio_x, text_x=text_x)
                 # Calculamos el error de validación:
-                loss = criterion(predictions, labels)
+                loss = funcion_perdida(predictions, labels)
                 val_loss += loss.item()
 
-                # POC: como en la prueba inicial tenemos la Sigmoide, directamente aplicamos esta línea:
+                # POC: como en la prueba inicial tenemos la sigmoide, directamente aplicamos esta línea:
                 # Calculamos cuántas acertó (predicciones > 0.5 se consideran clase 1, y < 0.5 se consideran clase 0)
                 # predicted_labels = (predictions > 0.5).float()
                 # 
-                # Con BCEWithLogitsLoss, al tener logits a la salida, aplicamos Sigmoide ahora:
+                # Con BCEWithLogitsLoss, al tener logits a la salida, aplicamos sigmoide ahora:
                 probabilidades = torch.sigmoid(predictions)
                 predicted_labels = (probabilidades > 0.5).float() 
 
@@ -408,7 +390,7 @@ def main():
         # Calculamos el F1-Score Macro para penalizar el desbalanceo:
         val_f1 = f1_score(epoch_labels, epoch_preds, average='macro')
 
-        # Calculamos el Recall de la clase estrés (pos_label=1):
+        # Calculamos el recall de la clase estrés (pos_label=1):
         val_recall_estres = recall_score(epoch_labels, epoch_preds, pos_label=1, zero_division=0)
 
         # Mostramos resultados de la epoch:
@@ -424,10 +406,7 @@ def main():
         # ---------------------------------------------
         if val_f1 > best_val_f1:
             best_val_f1 = val_f1
-            best_val_recall = val_recall_estres
-            # =========================================================
-            # GUARDADO DEL MODELO 
-            # =========================================================
+            # GUARDADO DEL MODELO:
             torch.save(model.state_dict(), nombre_modelo) # Guardamos los pesos de la red en el directorio actual (./)
             print(f"Nuevo mejor modelo: (F1: {best_val_f1:.4f}) -> Guardando pesos...")
             contador_paciencia = 0 # Reseteamos el contador porque ha mejorado

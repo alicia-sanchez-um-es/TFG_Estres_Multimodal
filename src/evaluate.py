@@ -27,8 +27,8 @@ def str2bool(v):
     
 
 def parse_args():
-    # Argumentos de entrada por terminal directamente: 
-    parser = argparse.ArgumentParser(description="Evaluación del Modelo Multimodal")
+    # Argumentos de entrada por terminal directamente:
+    parser = argparse.ArgumentParser(description="Evaluación del modelo (unimodal, bimodal o trimodal) para la detección de estrés")
 
     parser.add_argument('--model_path', type=str, required=True, help='Ruta al archivo .pth con los pesos')
     parser.add_argument('--eval_dataset', type=str, default='global', choices=['global', 'MELD', 'IEMOCAP'], 
@@ -66,7 +66,7 @@ def parse_args():
     # ---> ANÁLISIS DE SESGO DE GÉNERO:
     parser.add_argument('--gender_bias', type=str2bool, default=False, help='Pon True para realizar y graficar el análisis de sesgo de género para la arquitectura multimodal de video, audio y texto solo.')
 
-    # ---> ANÁLISIS DE INTERPRETABILIDAD:
+    # ---> ANÁLISIS DE INTERPRETABILIDAD en MECANISMO DE ATENCIÓN:
     parser.add_argument('--interp_atencion', type=str2bool, default=False, help='Pon True para extraer y guardar los pesos de atención en un CSV para la arquitectura multimodal de video, audio y texto solo.')
 
     # 4. TRANSFER-LEARNING:
@@ -74,7 +74,7 @@ def parse_args():
                         help='Activa la evaluación de transferencia de aprendizaje para evaluar al modelo sobre el dataset completo indicado. Sobrescribe a --eval_dataset. Solo aplicable para arquitecturas trimodales.')
     
     # 5. ESTUDIO DE ABLACIÓN:
-    parser.add_argument('--ablation_study', nargs='+', default=[], choices=['video', 'audio', 'texto'], 
+    parser.add_argument('--ablation_study', nargs='+', default=[], choices=['video', 'audio', 'texto'],  # con nargs='+' permitimos que se acepten varios valores desde el terminal separados por espacio
                         help='Modalidades a apagar para el estudio de ablación (ej: --ablation_study video texto). Solo aplicable para arquitecturas multimodales (bi o tri).')
 
     return parser.parse_args()
@@ -90,9 +90,12 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     mods = []
-    if args.video is not None: mods.append('video')
-    if args.audio is not None: mods.append('audio')
-    if args.text is not None: mods.append('texto')
+    if args.video is not None: 
+        mods.append('video')
+    if args.audio is not None: 
+        mods.append('audio')
+    if args.text is not None: 
+        mods.append('texto')
 
     if len(mods) == 0:
         raise ValueError("Debes especificar al menos un backbone (--video, --audio o --text) para evaluar el modelo.")
@@ -138,26 +141,20 @@ def main():
     eval_labels = df_eval['target_stress'].tolist()
 
     #------------------------------------------------------------------
-    # CÁLCULO DINÁMICO DE PASOS DE TIEMPO (TIME STEPS) Y MAX_AUDIO_LEN
+    # TAMAÑO DE VENTANAS
     # -----------------------------------------------------------------
-    # AUDIO:
-    if args.audio == 'mfcc':
-        AUDIO_INPUT_DIM = 15
-    else: # wav2vec
-        AUDIO_INPUT_DIM = 768
 
-    MAX_AUDIO_LEN = 550 if args.audio_len == 11 else 350  
-        
-    
-    # VÍDEO:
+    # VIDEO:
+
+    VISUAL_INPUT_DIM = 2048 if args.video == 'resnet' else (1280 if args.video == 'efficientnet' else 768)
     MAX_VIDEO_FRAMES = args.video_frames
+
+    # AUDIO:
+
+    AUDIO_INPUT_DIM = 15 if args.audio == 'mfcc' else 768
+    # Para hacer la comparativa justa entre MFCCs y Wav2Vec 2.0, ambos presentan frecuencia de muestreo de 16kHz (sr=16000) y un hop_length de 320. Por tanto, extraen 1 vector de características cada 320/16000 = 0,02 (20 ms). Con esa configuración, para 11s, se limita dicha ventana temporal en MAX_AUDIO_LEN = 550 (11/0,02 = 550 vectores de características), mientras que para 7s el tamaño de la ventana queda con 350 vectores extraídos (7/0,02 = 350)
+    MAX_AUDIO_LEN = 550 if args.audio_len == 11 else 350 
     
-    if args.video == 'resnet':
-        VISUAL_INPUT_DIM = 2048
-    elif args.video == 'efficientnet':
-        VISUAL_INPUT_DIM = 1280
-    else: # vit
-        VISUAL_INPUT_DIM = 768
 
 
     # -------------------------------------------
@@ -184,7 +181,7 @@ def main():
         
     # -------------------- BIMODAL/TRIMODAL -------------------------
 
-    if len(mods) == 2 or len(mods) == 3:
+    else : # len(mods) > 1
         if args.fusion == 'early':
             model = EarlyFusion(visual_dim=VISUAL_INPUT_DIM, audio_dim=AUDIO_INPUT_DIM, text_dim=768, proj_dim=args.proj_dim, hidden_mlp=args.hidden_mlp, dropout_prob=args.dropout, modalidades=mods)
         elif args.fusion == 'late':
@@ -196,11 +193,10 @@ def main():
     
     model.load_state_dict(torch.load(args.model_path, map_location=device))
     model = model.to(device)
-    model.eval() # Ponemos el modelo en modo evaluación, no hay cálculo de gradientes ni actualización de pesos (solo forward pass)
+    model.eval() # Ponemos el modelo en modo evaluación, no hay cálculo de gradientes ni actualización de pesos (solo forward pass), también se desactivan las capas de dropout
 
     ######## MÉTRICA: NÚMERO DE PARÁMETROS ##############
 
-    # MÉTRICA: NÚMERO DE PARÁMETROS
     total_params = sum(p.numel() for p in model.parameters())
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
 
@@ -219,7 +215,7 @@ def main():
         max_video_frames=MAX_VIDEO_FRAMES,
         modalidades = mods
     )
-    eval_loader = DataLoader(eval_dataset, batch_size=1, shuffle=False) # Batch 1 para medir tiempo de inferencia real
+    eval_loader = DataLoader(eval_dataset, batch_size=1, shuffle=False) # Batch 1 para medir tiempo de inferencia real por muestra
 
     # -----------------------------------------
     # BUCLE DE EVALUACIÓN
@@ -229,24 +225,23 @@ def main():
     all_labels = []
     tiempo_inferencia = []
 
-    all_attention_weights = [] # Guardamos aquí los pesos de atención
+    all_attention_weights = [] # Guardamos aquí los pesos de atención obtenidos muestra a muestra
 
     nombre_base = os.path.basename(args.model_path).replace('.pth', '')
 
-    if len(args.ablation_study) > 0 and len(mods) > 1:
+    if args.ablation_study and len(mods) > 1:
         sufijo_ablacion = "_sin_" + "_".join(args.ablation_study)
         nombre_base += sufijo_ablacion
 
-    backbone_unimodal = args.video if args.video is not None else (args.audio if args.audio is not None else args.text)
+    backbone_unimodal = args.video or args.audio or args.text
 
-    if args.transfer_learning is not None:
+    if args.transfer_learning:
         # Ej: "_transfer_learning_IEMOCAP"
         sufijo_final = f"transfer_learning_{args.transfer_learning}"
+    elif len(mods) == 1:
+        sufijo_final = args.split # Ej: "test"
     else:
-        if len(mods) == 1:
-            sufijo_final = args.split # Ej: "test"
-        else:
-            sufijo_final = f"{args.eval_dataset}_{args.split}" # Ej: "global_test"
+        sufijo_final = f"{args.eval_dataset}_{args.split}" # Ej: "global_test"
 
     if len(mods) == 1: 
         nombre_mc = f'Fig_matriz_confusion_baseline_unimodal_{modalidad.upper()}_{backbone_unimodal}_{sufijo_final}.png'
@@ -267,7 +262,7 @@ def main():
             #-----------------------------------------------------------------------------------
             # ESTUDIO DE ABLACIÓN 
             #-------------------------------------------------------------------------------------
-            if len(args.ablation_study) > 0 and len(mods) > 1:
+            if args.ablation_study and len(mods) > 1:
                 if 'video' in args.ablation_study and video_x is not None:
                     video_x = torch.zeros_like(video_x)
                 if 'audio' in args.ablation_study and audio_x is not None:
@@ -278,13 +273,13 @@ def main():
             
             ######## MÉTRICA: TIEMPO DE INFERENCIA ##############
             start_time = time.time()
-            # Si el modelo es el de atención y el usuario explícitamente indicó "si" para el análisis de interpretabilidad:
             if len(mods) == 1:
                 unico_input = video_x if video_x is not None else (audio_x if audio_x is not None else text_x)
                 output = model(unico_input)
+            # Si el modelo es el de atención y el usuario explícitamente indicó "si" para el análisis de interpretabilidad:
             elif args.fusion == "attention" and args.interp_atencion and len(mods) == 3:
                 output, attn_weights = model(video_x= video_x, audio_x=audio_x, text_x=text_x, return_attention=True)
-                # Guardamos los pesos, con squeeze quitamos las dimensiones vacías para que quede [Vídeo, Audio, Texto]
+                # Guardamos los pesos, con squeeze quitamos la dimensión de batch para que quede [Vídeo, Audio, Texto]
                 all_attention_weights.append(attn_weights.squeeze().cpu().numpy().tolist())
             else :
                 output = model(video_x=video_x, audio_x=audio_x, text_x=text_x)
@@ -296,14 +291,14 @@ def main():
             # prob = output.item()
 
             # Con BCEWithLogitsLoss:
-            probs = torch.sigmoid(output) # Aplicamos Sigmoide para convertir el logit en probabilidad de estrés (0 a 1)
+            probs = torch.sigmoid(output) # Aplicamos sigmoide para convertir el logit en probabilidad de estrés (0 a 1)
             preds = (probs > 0.5).float()
 
             all_labels.extend(labels.cpu().numpy().flatten().tolist()) #Utilizamos .flatten() para aplanar a [Batch] y evitar errores con scikit-learn
             all_preds.extend(preds.cpu().numpy().flatten().tolist())
             all_probs.extend(probs.cpu().numpy().flatten().tolist())
 
-    ######## MÉTRICAS : Accuracy, Balanced Accuracy, F1-Score Macro, F1-Score Weighted, AUC ##############
+    ######## MÉTRICAS : Accuracy, Balanced Accuracy, F1-Score Macro, F1-Score Weighted, AUC (con muchas más de las indicadas como referencia para nuestro proyecto, pero es para verificarlas todas, y de ellas cogemos las que más nos interesen)##############
 
     media_tiempo_inferencia = np.mean(tiempo_inferencia) * 1000 # a milisegundos
     acc = accuracy_score(all_labels, all_preds)
@@ -323,7 +318,7 @@ def main():
     print(f"Balanced Accuracy (en %): {balanced_acc*100:.2f}%")
 
 
-    ######## MÉTRICA : MATRIZ DE CONFUSIÓN ##############
+    # MATRIZ DE CONFUSIÓN:
 
     cm = confusion_matrix(all_labels, all_preds)
     plt.figure(figsize=(8, 6))
@@ -387,13 +382,13 @@ def main():
         
         # Verificamos que exista la columna gender, para mayor seguridad:
         if 'gender' not in df_bias.columns:
-            print("  [ERROR] No se encontró la columna 'gender' en el dataset.")
+            print("No se encontró la columna 'gender' en el dataset")
         else:
             df_bias['true_label'] = all_labels
             df_bias['pred_label'] = all_preds
             df_bias['pred_prob'] = all_probs
 
-            # Filtramos solo Masculino (M) y Femenino (F) 
+            # Filtramos solo masculino (M) y femenino (F) 
             df_mf = df_bias[df_bias['gender'].isin(['M', 'F'])]
 
             def calcular_metricas_grupo(df_grupo):
@@ -416,7 +411,7 @@ def main():
             print(f" FEMENINO  (N={metricas_F['N']}): F1-Macro: {metricas_F['F1-Macro']:.4f} | Recall: {metricas_F['TPR']:.4f} | FPR: {metricas_F['FPR']:.4f}")
             print(f" MASCULINO (N={metricas_M['N']}): F1-Macro: {metricas_M['F1-Macro']:.4f} | Recall: {metricas_M['TPR']:.4f} | FPR: {metricas_M['FPR']:.4f}")
 
-            # --- Visualización con Seaborn ---
+            # --- Visualización con Seaborn --------
             plot_data = pd.DataFrame({
                 'Género': ['Femenino', 'Femenino', 'Femenino', 'Masculino', 'Masculino', 'Masculino'],
                 'Métrica': ['F1-Macro', 'TPR (Recall)', 'FPR (Falsas Alarmas)', 'F1-Macro', 'TPR (Recall)', 'FPR (Falsas Alarmas)'],
